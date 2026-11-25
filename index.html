@@ -196,8 +196,8 @@
       background: #f1f8e9;
       border: 2px solid #81c784;
       border-radius: 10px;
-      padding: 12px 14px;
-      margin-bottom: 10px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
       cursor: pointer;
       transition: 0.15s;
     }
@@ -207,14 +207,55 @@
     }
     .location-choice-btn strong {
       display: block;
-      font-size: 0.98rem;
+      font-size: 0.95rem;
       color: #1b5e20;
       margin-bottom: 2px;
     }
     .location-choice-btn span {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: #555;
     }
+
+    /* カスタムエリア設定ボックス */
+    .custom-location-box {
+      background: #e3f2fd;
+      border: 2px solid #64b5f6;
+      border-radius: 10px;
+      padding: 12px;
+      margin-top: 6px;
+    }
+    .custom-location-box strong {
+      display: block;
+      font-size: 0.95rem;
+      color: #0d47a1;
+      margin-bottom: 6px;
+    }
+    .custom-input-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .custom-input-row input {
+      flex: 1;
+      padding: 7px 9px;
+      border: 1px solid #90caf9;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      background: #fff;
+    }
+    .custom-go-btn {
+      background: #1565c0;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .custom-go-btn:hover { background: #0d47a1; }
+    .custom-go-btn:disabled { background: #999; cursor: not-allowed; }
 
     .popup-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-bottom: 4px; }
@@ -290,23 +331,37 @@
 
 <button class="fab-btn" onclick="openModal()">＋ スポットを投稿</button>
 
-<!-- 初期表示エリア選択モーダル -->
+<!-- 初期表示・エリア切替モーダル -->
 <div class="modal-overlay" id="locationModal" style="display: flex;">
   <div class="modal">
-    <h2>📍 表示する初期エリアを選択</h2>
-    <p style="font-size:0.83rem; color:#555; margin-bottom:14px;">地図を開く中心地点を3つのエリアから選んでください（画面右上の「📍 エリア切替」からいつでも変更できます）。</p>
+    <h2>📍 表示するエリアを選択</h2>
+    <p style="font-size:0.82rem; color:#555; margin-bottom:12px;">地図の中心にする場所を選んでください（右上の「📍 エリア切替」からいつでも変更できます）。</p>
     <button class="location-choice-btn" onclick="selectInitialLocation(0)">
-      <strong>① 飯野（飯野駅周辺）</strong>
+      <strong>① 真幸・東エリア（岡松周辺）</strong>
       <span>緯度: 32.030525 / 経度: 130.8706972</span>
     </button>
     <button class="location-choice-btn" onclick="selectInitialLocation(1)">
-      <strong>② 加久藤（小田・加久藤周辺）</strong>
+      <strong>② 飯野・中心エリア（飯野駅周辺）</strong>
       <span>緯度: 32.0424583 / 経度: 130.8155250</span>
     </button>
     <button class="location-choice-btn" onclick="selectInitialLocation(2)">
-      <strong>③ 真幸（岡松周辺）</strong>
+      <strong>③ 加久藤・西エリア（小田・加久藤周辺）</strong>
       <span>緯度: 32.0452472 / 経度: 130.7672972</span>
     </button>
+
+    <!-- 自分で場所を設定できる欄 -->
+    <div class="custom-location-box">
+      <strong>④ 自分で場所を設定して移動</strong>
+      <div style="font-size:0.76rem; color:#333;">地名・施設名で検索するか、緯度・経度を入力してください。</div>
+      <div class="custom-input-row">
+        <input type="text" id="customPlaceQuery" placeholder="例：えびの市役所 / 京町温泉駅" onkeydown="if(event.key==='Enter') searchCustomPlace()" />
+        <button type="button" class="custom-go-btn" id="placeSearchBtn" onclick="searchCustomPlace()">🔍 検索して移動</button>
+      </div>
+      <div class="custom-input-row">
+        <input type="text" id="customLatLngInput" placeholder="座標直接入力: 32.04246, 130.81553" onkeydown="if(event.key==='Enter') applyCustomLatLng()" />
+        <button type="button" class="custom-go-btn" style="background:#0277bd;" onclick="applyCustomLatLng()">座標で移動</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -392,13 +447,72 @@
     attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
   }).addTo(map);
 
+  function moveToLocation(name, lat, lng) {
+    currentBaseLocation = { name, lat, lng };
+    map.setView([lat, lng], 15);
+    document.getElementById('spotLatLng').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    document.getElementById('locationModal').style.display = 'none';
+  }
+
   function selectInitialLocation(index) {
     const loc = presetLocations[index];
     if (!loc) return;
-    currentBaseLocation = loc;
-    map.setView([loc.lat, loc.lng], 15);
-    document.getElementById('spotLatLng').value = `${loc.lat.toFixed(6)}, ${loc.lng.toFixed(6)}`;
-    document.getElementById('locationModal').style.display = 'none';
+    moveToLocation(loc.name, loc.lat, loc.lng);
+  }
+
+  async function searchCustomPlace() {
+    const query = document.getElementById('customPlaceQuery').value.trim();
+    const btn = document.getElementById('placeSearchBtn');
+    if (!query) {
+      alert('検索したい地名や施設名を入力してください（例：えびの市役所）。');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '検索中...';
+
+    try {
+      // 国土地理院の無料ジオコーディングAPIで日本国内の地名を検索
+      const searchWord = query.includes('えびの') || query.includes('宮崎') ? query : `宮崎県えびの市 ${query}`;
+      let res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(searchWord)}`);
+      let data = await res.json();
+
+      // ヒットしない場合は入力語そのままでも再検索
+      if (!data || data.length === 0) {
+        res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(query)}`);
+        data = await res.json();
+      }
+
+      if (data && data.length > 0 && data[0].geometry && data[0].geometry.coordinates) {
+        const [lng, lat] = data[0].geometry.coordinates;
+        const foundTitle = data[0].properties.title || query;
+        moveToLocation(`④ ${foundTitle}`, lat, lng);
+      } else {
+        alert('場所が見つかりませんでした。別の地名にするか、下の欄に「緯度, 経度」を直接入力してください。');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('検索中に通信エラーが発生しました。下の欄に「緯度, 経度」を直接入力して移動できます。');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔍 検索して移動';
+    }
+  }
+
+  function applyCustomLatLng() {
+    const raw = document.getElementById('customLatLngInput').value.trim();
+    const parts = raw.split(/[,、\s]+/);
+    if (parts.length < 2) {
+      alert('緯度と経度をカンマ区切りで入力してください（例：32.04246, 130.81553）。');
+      return;
+    }
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      alert('正しい緯度・経度の数値を入力してください。');
+      return;
+    }
+    moveToLocation(`④ 指定座標 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
   }
 
   function openLocationModal() {
