@@ -216,7 +216,7 @@
       color: #555;
     }
 
-    /* カスタムエリア設定ボックス */
+    /* 登録ピン検索・座標移動ボックス */
     .custom-location-box {
       background: #e3f2fd;
       border: 2px solid #64b5f6;
@@ -228,7 +228,7 @@
       display: block;
       font-size: 0.95rem;
       color: #0d47a1;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
     .custom-input-row {
       display: flex;
@@ -255,16 +255,17 @@
       white-space: nowrap;
     }
     .custom-go-btn:hover { background: #0d47a1; }
-    .custom-go-btn:disabled { background: #999; cursor: not-allowed; }
 
-    /* 検索結果リスト */
-    #searchResultsList {
+    /* 登録ピン検索結果リスト */
+    #pinSearchResults {
       margin-top: 8px;
+      max-height: 170px;
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
       gap: 5px;
     }
-    .search-result-item {
+    .pin-warp-item {
       background: #fff;
       border: 1px solid #90caf9;
       border-radius: 6px;
@@ -274,20 +275,32 @@
       font-size: 0.8rem;
       transition: 0.15s;
     }
-    .search-result-item:hover {
+    .pin-warp-item:hover {
       background: #bbdefb;
       border-color: #1565c0;
     }
-    .search-result-item .res-title {
+    .pin-warp-title {
       font-weight: bold;
       color: #0d47a1;
-      display: block;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
-    .search-result-item .res-sub {
+    .pin-warp-cat {
+      font-size: 0.68rem;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .pin-warp-desc {
       font-size: 0.72rem;
       color: #555;
       display: block;
       margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .popup-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
@@ -332,14 +345,14 @@
     <span>地域の安全・魅力・農業と人口データをみんなで共有</span>
   </div>
   <div class="header-actions">
-    <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替</button>
+    <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
     <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
     <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdminMode()">🔑 管理者</button>
   </div>
 </header>
 
 <div class="filter-bar">
-  <button class="filter-btn active" onclick="filterSpots('all', this)">すべて表示</button>
+  <button class="filter-btn active" id="filterAllBtn" onclick="filterSpots('all', this)">すべて表示</button>
   <button class="filter-btn" onclick="filterSpots('danger', this)">⚠️ 危険箇所</button>
   <button class="filter-btn" onclick="filterSpots('local', this)">🏪 ローカル・穴場</button>
   <button class="filter-btn" onclick="filterSpots('fishing', this)">🎣 釣り場</button>
@@ -364,11 +377,11 @@
 
 <button class="fab-btn" onclick="openModal()">＋ スポットを投稿</button>
 
-<!-- 初期表示・エリア切替モーダル -->
+<!-- 初期表示・エリア切替・ピン検索ワープモーダル -->
 <div class="modal-overlay" id="locationModal" style="display: flex;">
   <div class="modal">
-    <h2>📍 表示するエリアを選択</h2>
-    <p style="font-size:0.82rem; color:#555; margin-bottom:12px;">地図の中心にする場所を選んでください（右上の「📍 エリア切替」からいつでも変更できます）。</p>
+    <h2>📍 エリア切替・登録ピンへワープ</h2>
+    <p style="font-size:0.82rem; color:#555; margin-bottom:12px;">表示するエリアを選ぶか、登録済みのピン名を検索してワープできます。</p>
     <button class="location-choice-btn" onclick="selectInitialLocation(0)">
       <strong>① 真幸・東エリア（岡松周辺）</strong>
       <span>緯度: 32.030525 / 経度: 130.8706972</span>
@@ -382,18 +395,22 @@
       <span>緯度: 32.0452472 / 経度: 130.7672972</span>
     </button>
 
-    <!-- 自分で場所を設定できる欄 -->
+    <!-- 登録ピン検索・ワープ欄 -->
     <div class="custom-location-box">
-      <strong>④ 自分で場所を設定して移動</strong>
-      <div style="font-size:0.75rem; color:#333;">えびの市周辺の施設・住所を検索して候補から選ぶか、GoogleマップのURL・緯度経度を貼り付けてください。</div>
+      <strong>④ 登録済みのピンを検索してワープ</strong>
+      <div style="font-size:0.75rem; color:#333;">マップに登録されているピンの名前・メモを入力すると一覧からワープできます。</div>
       <div class="custom-input-row">
-        <input type="text" id="customPlaceQuery" placeholder="例：えびの市役所 / 京町温泉駅 / 上江" onkeydown="if(event.key==='Enter') searchCustomPlace()" />
-        <button type="button" class="custom-go-btn" id="placeSearchBtn" onclick="searchCustomPlace()">🔍 候補検索</button>
+        <input type="text" id="pinSearchInput" placeholder="ピン名・キーワードを入力..." oninput="filterRegisteredPins()" />
+        <button type="button" class="custom-go-btn" onclick="filterRegisteredPins()">検索</button>
       </div>
-      <div id="searchResultsList"></div>
-      <div class="custom-input-row" style="margin-top:8px;">
-        <input type="text" id="customLatLngInput" placeholder="座標 or GoogleマップURLを貼付" onkeydown="if(event.key==='Enter') applyCustomLatLng()" />
-        <button type="button" class="custom-go-btn" style="background:#0277bd;" onclick="applyCustomLatLng()">移動</button>
+      <div id="pinSearchResults"></div>
+
+      <div style="border-top:1px dashed #90caf9; margin-top:10px; padding-top:8px;">
+        <div style="font-size:0.75rem; color:#333;">⑤ 自分で座標・GoogleマップURLを指定して移動</div>
+        <div class="custom-input-row">
+          <input type="text" id="customLatLngInput" placeholder="座標 or GoogleマップURLを貼付" onkeydown="if(event.key==='Enter') applyCustomLatLng()" />
+          <button type="button" class="custom-go-btn" style="background:#0277bd;" onclick="applyCustomLatLng()">移動</button>
+        </div>
       </div>
     </div>
   </div>
@@ -481,9 +498,9 @@
     attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
   }).addTo(map);
 
-  function moveToLocation(name, lat, lng) {
+  function moveToLocation(name, lat, lng, zoom = 16) {
     currentBaseLocation = { name, lat, lng };
-    map.setView([lat, lng], 16);
+    map.setView([lat, lng], zoom);
     document.getElementById('spotLatLng').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     document.getElementById('locationModal').style.display = 'none';
   }
@@ -491,105 +508,69 @@
   function selectInitialLocation(index) {
     const loc = presetLocations[index];
     if (!loc) return;
-    moveToLocation(loc.name, loc.lat, loc.lng);
+    moveToLocation(loc.name, loc.lat, loc.lng, 15);
   }
 
-  // えびの市周辺（小林市・湧水町・人吉市の一部を含む半径約25km圏内）判定
-  function isNearEbino(lat, lng) {
-    return lat >= 31.88 && lat <= 32.22 && lng >= 130.60 && lng <= 131.05;
-  }
+  // 登録済みピンの検索結果を表示
+  function filterRegisteredPins() {
+    const listEl = document.getElementById('pinSearchResults');
+    const keyword = (document.getElementById('pinSearchInput').value || '').trim().toLowerCase();
+    listEl.innerHTML = '';
 
-  async function searchCustomPlace() {
-    const query = document.getElementById('customPlaceQuery').value.trim();
-    const btn = document.getElementById('placeSearchBtn');
-    const listEl = document.getElementById('searchResultsList');
-
-    if (!query) {
-      alert('検索したい施設名・駅名・地名を入力してください。');
+    if (!sharedSpots || sharedSpots.length === 0) {
+      listEl.innerHTML = '<div style="font-size:0.76rem; color:#666; padding:4px;">登録されているピンがまだありません（読み込み中の場合は数秒お待ちください）。</div>';
       return;
     }
 
-    btn.disabled = true;
-    btn.textContent = '検索中...';
-    listEl.innerHTML = '<div style="font-size:0.78rem; color:#1565c0; padding:4px;">えびの市周辺を検索中...</div>';
+    const matched = sharedSpots.filter(spot => {
+      if (!keyword) return true;
+      const t = (spot.title || '').toLowerCase();
+      const d = (spot.desc || '').toLowerCase();
+      return t.includes(keyword) || d.includes(keyword);
+    });
 
-    try {
-      const candidates = [];
-      const seenKeys = new Set();
-
-      const addCandidate = (title, sub, lat, lng) => {
-        if (!isNearEbino(lat, lng)) return;
-        const key = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
-        if (seenKeys.has(key)) return;
-        seenKeys.add(key);
-        candidates.push({ title, sub, lat, lng });
-      };
-
-      // 1. OpenStreetMap（bounded=1 でえびの市周辺に厳密限定）
-      const viewbox = '130.60,32.22,131.05,31.88';
-      const nomQueries = [
-        `えびの市 ${query}`,
-        query
-      ];
-
-      for (const q of nomQueries) {
-        const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&accept-language=ja&limit=8&viewbox=${viewbox}&bounded=1&q=${encodeURIComponent(q)}`;
-        const nomRes = await fetch(nomUrl);
-        const nomData = await nomRes.json();
-        if (Array.isArray(nomData)) {
-          nomData.forEach(item => {
-            const parts = (item.display_name || '').split(',').map(s => s.trim());
-            const title = parts[0] || query;
-            const sub = parts.slice(1, 4).join(' ');
-            addCandidate(title, sub, parseFloat(item.lat), parseFloat(item.lon));
-          });
-        }
-        if (candidates.length >= 5) break;
-      }
-
-      // 2. 国土地理院の住所検索API（えびの市周辺のみ抽出）
-      const gsiWord = query.includes('えびの') ? query : `えびの市${query}`;
-      const gsiRes = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(gsiWord)}`);
-      const gsiData = await gsiRes.json();
-      if (Array.isArray(gsiData)) {
-        gsiData.forEach(item => {
-          if (item.geometry && item.geometry.coordinates) {
-            const [lng, lat] = item.geometry.coordinates;
-            const fullTitle = (item.properties && item.properties.title) || query;
-            addCandidate(fullTitle, '国土地理院 住所データ', lat, lng);
-          }
-        });
-      }
-
-      listEl.innerHTML = '';
-      if (candidates.length === 0) {
-        listEl.innerHTML = `
-          <div style="background:#fff3e0; border:1px solid #ffb74d; border-radius:6px; padding:8px; font-size:0.78rem; color:#e65100;">
-            えびの市周辺で「${escapeHtml(query)}」の候補が見つかりませんでした。<br>
-            ※ Googleマップでその場所を開き、上のURL（または緯度,経度）をコピーして下の欄に貼り付けると確実に移動できます。
-          </div>
-        `;
-        return;
-      }
-
-      candidates.slice(0, 6).forEach(c => {
-        const btnItem = document.createElement('button');
-        btnItem.type = 'button';
-        btnItem.className = 'search-result-item';
-        btnItem.innerHTML = `
-          <span class="res-title">📍 ${escapeHtml(c.title)}</span>
-          <span class="res-sub">${escapeHtml(c.sub)}（${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}）</span>
-        `;
-        btnItem.onclick = () => moveToLocation(`④ ${c.title}`, c.lat, c.lng);
-        listEl.appendChild(btnItem);
-      });
-    } catch (e) {
-      console.error(e);
-      listEl.innerHTML = '<div style="font-size:0.78rem; color:#c62828;">検索中に通信エラーが発生しました。下の欄に座標またはGoogleマップURLを貼って移動してください。</div>';
-    } finally {
-      btn.disabled = false;
-      btn.textContent = '🔍 候補検索';
+    if (matched.length === 0) {
+      listEl.innerHTML = `<div style="font-size:0.76rem; color:#c62828; padding:4px;">「${escapeHtml(keyword)}」に一致するピンが見つかりませんでした。</div>`;
+      return;
     }
+
+    matched.forEach(spot => {
+      const meta = catMeta[spot.category] || catMeta.local;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pin-warp-item';
+      btn.innerHTML = `
+        <span class="pin-warp-title">
+          <span class="pin-warp-cat" style="background:${meta.color};">${meta.label}</span>
+          <span>${escapeHtml(spot.title)}</span>
+        </span>
+        <span class="pin-warp-desc">${escapeHtml(spot.desc || '詳細メモなし')}</span>
+      `;
+      btn.onclick = () => warpToPin(spot.id);
+      listEl.appendChild(btn);
+    });
+  }
+
+  // 指定した登録ピンへワープして吹き出しを開く
+  function warpToPin(spotId) {
+    const target = sharedSpots.find(s => s.id === spotId);
+    if (!target) return;
+
+    // フィルターで隠れている場合は「すべて表示」に戻して確実に表示する
+    if (currentFilter !== 'all' && currentFilter !== target.category) {
+      const allBtn = document.getElementById('filterAllBtn');
+      filterSpots('all', allBtn);
+    }
+
+    moveToLocation(target.title, target.lat, target.lng, 17);
+
+    // 該当ピンのポップアップを自動で開く
+    setTimeout(() => {
+      const marker = markerMap[spotId];
+      if (marker) {
+        marker.openPopup();
+      }
+    }, 200);
   }
 
   function applyCustomLatLng() {
@@ -602,7 +583,6 @@
     let lat = NaN;
     let lng = NaN;
 
-    // GoogleマップURL内の @緯度,経度 または !3d緯度!4d経度 を自動抽出
     const atMatch = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     const dMatch = raw.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
 
@@ -624,14 +604,16 @@
       alert('座標を読み取れませんでした。\n「32.04246, 130.81553」の形か、ブラウザのGoogleマップURLをそのまま貼り付けてください。');
       return;
     }
-    moveToLocation(`④ 指定地点 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
+    moveToLocation(`⑤ 指定地点 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng, 16);
   }
 
   function openLocationModal() {
     document.getElementById('locationModal').style.display = 'flex';
+    filterRegisteredPins();
   }
 
   let sharedSpots = [];
+  let markerMap = {};
   let currentFilter = 'all';
   let markersLayer = L.layerGroup().addTo(map);
   let navLayer = L.layerGroup().addTo(map);
@@ -761,12 +743,17 @@
       sharedSpots = data || [];
       document.getElementById('syncStatus').textContent = `🟢 リアルタイム共有中 (${sharedSpots.length}件)`;
       renderMarkers(currentFilter);
+      // モーダルが開いている場合はピン検索一覧も最新化
+      if (document.getElementById('locationModal').style.display === 'flex') {
+        filterRegisteredPins();
+      }
     }
   }
 
   function renderMarkers(filter = 'all') {
     currentFilter = filter;
     markersLayer.clearLayers();
+    markerMap = {};
 
     sharedSpots.forEach(spot => {
       if (filter !== 'all' && spot.category !== filter) return;
@@ -799,9 +786,11 @@
         </div>
       `;
 
-      L.marker([spot.lat, spot.lng], { icon: customIcon })
+      const marker = L.marker([spot.lat, spot.lng], { icon: customIcon })
         .bindPopup(popupContent)
         .addTo(markersLayer);
+
+      markerMap[spot.id] = marker;
     });
   }
 
