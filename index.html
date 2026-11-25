@@ -352,7 +352,7 @@
     <!-- 自分で場所を設定できる欄 -->
     <div class="custom-location-box">
       <strong>④ 自分で場所を設定して移動</strong>
-      <div style="font-size:0.76rem; color:#333;">地名・施設名で検索するか、緯度・経度を入力してください。</div>
+      <div style="font-size:0.76rem; color:#333;">施設名・駅名・地名で検索するか、緯度・経度を入力してください。</div>
       <div class="custom-input-row">
         <input type="text" id="customPlaceQuery" placeholder="例：えびの市役所 / 京町温泉駅" onkeydown="if(event.key==='Enter') searchCustomPlace()" />
         <button type="button" class="custom-go-btn" id="placeSearchBtn" onclick="searchCustomPlace()">🔍 検索して移動</button>
@@ -449,7 +449,7 @@
 
   function moveToLocation(name, lat, lng) {
     currentBaseLocation = { name, lat, lng };
-    map.setView([lat, lng], 15);
+    map.setView([lat, lng], 16);
     document.getElementById('spotLatLng').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     document.getElementById('locationModal').style.display = 'none';
   }
@@ -464,7 +464,7 @@
     const query = document.getElementById('customPlaceQuery').value.trim();
     const btn = document.getElementById('placeSearchBtn');
     if (!query) {
-      alert('検索したい地名や施設名を入力してください（例：えびの市役所）。');
+      alert('検索したい施設名・駅名・地名を入力してください（例：えびの市役所）。');
       return;
     }
 
@@ -472,24 +472,36 @@
     btn.textContent = '検索中...';
 
     try {
-      // 国土地理院の無料ジオコーディングAPIで日本国内の地名を検索
-      const searchWord = query.includes('えびの') || query.includes('宮崎') ? query : `宮崎県えびの市 ${query}`;
-      let res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(searchWord)}`);
-      let data = await res.json();
+      // 1. まず施設名・ランドマークに強いOpenStreetMap（Nominatim）でえびの市周辺を優先検索
+      const searchWord = (query.includes('えびの') || query.includes('宮崎')) ? query : `えびの市 ${query}`;
+      const viewbox = '130.65,32.15,130.98,31.93'; // えびの市周辺の緯度経度範囲
+      const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&accept-language=ja&limit=5&viewbox=${viewbox}&q=${encodeURIComponent(searchWord)}`;
+      const nomRes = await fetch(nomUrl);
+      const nomData = await nomRes.json();
 
-      // ヒットしない場合は入力語そのままでも再検索
-      if (!data || data.length === 0) {
-        res = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(query)}`);
-        data = await res.json();
+      if (nomData && nomData.length > 0) {
+        // えびの市・宮崎県内の結果を最優先で選ぶ
+        const best = nomData.find(item => item.display_name && (item.display_name.includes('えびの市') || item.display_name.includes('宮崎県'))) || nomData[0];
+        const lat = parseFloat(best.lat);
+        const lng = parseFloat(best.lon);
+        const shortName = best.display_name ? best.display_name.split(',')[0] : query;
+        moveToLocation(`④ ${shortName}`, lat, lng);
+        return;
       }
 
-      if (data && data.length > 0 && data[0].geometry && data[0].geometry.coordinates) {
-        const [lng, lat] = data[0].geometry.coordinates;
-        const foundTitle = data[0].properties.title || query;
+      // 2. 見つからない場合は国土地理院の住所検索APIで再検索（宮崎県内の結果を優先）
+      const gsiRes = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(searchWord)}`);
+      const gsiData = await gsiRes.json();
+
+      if (gsiData && gsiData.length > 0) {
+        const bestGsi = gsiData.find(item => item.properties && item.properties.title && (item.properties.title.includes('えびの市') || item.properties.title.includes('宮崎県'))) || gsiData[0];
+        const [lng, lat] = bestGsi.geometry.coordinates;
+        const foundTitle = bestGsi.properties.title || query;
         moveToLocation(`④ ${foundTitle}`, lat, lng);
-      } else {
-        alert('場所が見つかりませんでした。別の地名にするか、下の欄に「緯度, 経度」を直接入力してください。');
+        return;
       }
+
+      alert('「' + query + '」が見つかりませんでした。\n「えびの市 〇〇」のように市名をつけるか、下の欄にGoogleマップ等からコピーした「緯度, 経度」を貼り付けて移動してください。');
     } catch (e) {
       console.error(e);
       alert('検索中に通信エラーが発生しました。下の欄に「緯度, 経度」を直接入力して移動できます。');
