@@ -383,15 +383,15 @@
     <h2>📍 エリア切替・登録ピンへワープ</h2>
     <p style="font-size:0.82rem; color:#555; margin-bottom:12px;">表示するエリアを選ぶか、登録済みのピン名を検索してワープできます。</p>
     <button class="location-choice-btn" onclick="selectInitialLocation(0)">
-      <strong>① 飯野・中心エリア（飯野駅周辺）</strong>
+      <strong>① 真幸・東エリア（岡松周辺）</strong>
       <span>緯度: 32.030525 / 経度: 130.8706972</span>
     </button>
     <button class="location-choice-btn" onclick="selectInitialLocation(1)">
-      <strong>② 加久藤・西エリア（小田・加久藤周辺）</strong>
+      <strong>② 飯野・中心エリア（飯野駅周辺）</strong>
       <span>緯度: 32.0424583 / 経度: 130.8155250</span>
     </button>
     <button class="location-choice-btn" onclick="selectInitialLocation(2)">
-      <strong>③ 真幸・東エリア（岡松周辺）</strong>
+      <strong>③ 加久藤・西エリア（小田・加久藤周辺）</strong>
       <span>緯度: 32.0452472 / 経度: 130.7672972</span>
     </button>
 
@@ -556,7 +556,6 @@
     const target = sharedSpots.find(s => s.id === spotId);
     if (!target) return;
 
-    // フィルターで隠れている場合は「すべて表示」に戻して確実に表示する
     if (currentFilter !== 'all' && currentFilter !== target.category) {
       const allBtn = document.getElementById('filterAllBtn');
       filterSpots('all', allBtn);
@@ -564,7 +563,6 @@
 
     moveToLocation(target.title, target.lat, target.lng, 17);
 
-    // 該当ピンのポップアップを自動で開く
     setTimeout(() => {
       const marker = markerMap[spotId];
       if (marker) {
@@ -637,17 +635,45 @@
       .subscribe();
   }
 
-  // ナビゲーション開始処理
+  // ID指定で安全にナビを開始するラッパー関数
+  function startNavigationById(spotId) {
+    const target = sharedSpots.find(s => s.id === spotId);
+    if (!target) {
+      alert('目的地データの取得に失敗しました。再読み込みしてもう一度お試しください。');
+      return;
+    }
+    startNavigation(Number(target.lat), Number(target.lng), target.title);
+  }
+
+  // ナビゲーション開始処理（タイムアウト＆フォールバック強化版）
   function startNavigation(destLat, destLng, title) {
     map.closePopup();
 
     const navPanel = document.getElementById('nav-panel');
     document.getElementById('navTargetTitle').textContent = `🧭 ${title}`;
-    document.getElementById('navOriginNote').textContent = '出発地：現在のGPS位置を取得中...';
+    document.getElementById('navOriginNote').textContent = '出発地：現在地を確認中...';
     document.getElementById('navDistance').textContent = '距離: 計算中...';
     document.getElementById('navDuration').textContent = '目安: 計算中...';
     document.getElementById('googleMapsLink').href = `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
     navPanel.style.display = 'block';
+
+    const drawStraightFallback = (origLat, origLng) => {
+      navLayer.clearLayers();
+      L.circleMarker([origLat, origLng], {
+        radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1
+      }).addTo(navLayer);
+
+      const line = L.polyline([[origLat, origLng], [destLat, destLng]], {
+        color: '#0288d1', weight: 4, dashArray: '8, 8'
+      }).addTo(navLayer);
+      map.fitBounds(line.getBounds(), { padding: [50, 130] });
+
+      const distM = map.distance([origLat, origLng], [destLat, destLng]);
+      const distKm = (distM / 1000).toFixed(1);
+      const walkMin = Math.max(1, Math.round((distM / 1000) / 4 * 60));
+      document.getElementById('navDistance').textContent = `直線距離: 約 ${distKm} km`;
+      document.getElementById('navDuration').textContent = `徒歩目安 約${walkMin}分（詳細はGoogleマップへ）`;
+    };
 
     const drawRoute = async (origLat, origLng, originLabel) => {
       navLayer.clearLayers();
@@ -658,44 +684,64 @@
         radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1
       }).bindPopup(`🚩 出発地（${originLabel}）`).addTo(navLayer);
 
+      // 4秒以内に応答がなければ直線案内へ切り替える
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
       try {
         const url = `https://router.project-osrm.org/route/v1/driving/${origLng},${origLat};${destLng},${destLat}?overview=full&geometries=geojson`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
         const json = await res.json();
 
         if (json.routes && json.routes.length > 0) {
           const route = json.routes[0];
           const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
           const poly = L.polyline(coords, { color: '#0288d1', weight: 6, opacity: 0.85 }).addTo(navLayer);
-          map.fitBounds(poly.getBounds(), { padding: [50, 120] });
+          map.fitBounds(poly.getBounds(), { padding: [50, 130] });
 
           const distKm = (route.distance / 1000).toFixed(1);
           const carMin = Math.max(1, Math.round(route.duration / 60));
           const walkMin = Math.max(1, Math.round((route.distance / 1000) / 4 * 60));
 
-          document.getElementById('navDistance').textContent = `距離: 約 ${distKm} km`;
+          document.getElementById('navDistance').textContent = `道路距離: 約 ${distKm} km`;
           document.getElementById('navDuration').textContent = `車 約${carMin}分 / 徒歩 約${walkMin}分`;
         } else {
-          throw new Error('Route not found');
+          drawStraightFallback(origLat, origLng);
         }
       } catch (e) {
-        const line = L.polyline([[origLat, origLng], [destLat, destLng]], {
-          color: '#0288d1', weight: 4, dashArray: '8, 8'
-        }).addTo(navLayer);
-        map.fitBounds(line.getBounds(), { padding: [50, 120] });
-        const distM = map.distance([origLat, origLng], [destLat, destLng]);
-        document.getElementById('navDistance').textContent = `直線距離: 約 ${(distM / 1000).toFixed(1)} km`;
-        document.getElementById('navDuration').textContent = 'Googleマップで詳細案内可';
+        clearTimeout(timeoutId);
+        drawStraightFallback(origLat, origLng);
       }
     };
 
+    let gpsResolved = false;
+    const fallbackTimer = setTimeout(() => {
+      if (!gpsResolved) {
+        gpsResolved = true;
+        drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
+      }
+    }, 3500);
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => drawRoute(pos.coords.latitude, pos.coords.longitude, '現在のGPS位置'),
-        () => drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`),
-        { timeout: 5000 }
+        (pos) => {
+          if (gpsResolved) return;
+          gpsResolved = true;
+          clearTimeout(fallbackTimer);
+          drawRoute(pos.coords.latitude, pos.coords.longitude, '現在のGPS位置');
+        },
+        () => {
+          if (gpsResolved) return;
+          gpsResolved = true;
+          clearTimeout(fallbackTimer);
+          drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
+        },
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
       );
     } else {
+      gpsResolved = true;
+      clearTimeout(fallbackTimer);
       drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
     }
   }
@@ -743,7 +789,6 @@
       sharedSpots = data || [];
       document.getElementById('syncStatus').textContent = `🟢 リアルタイム共有中 (${sharedSpots.length}件)`;
       renderMarkers(currentFilter);
-      // モーダルが開いている場合はピン検索一覧も最新化
       if (document.getElementById('locationModal').style.display === 'flex') {
         filterRegisteredPins();
       }
@@ -767,7 +812,6 @@
       });
 
       const imgHtml = spot.img ? `<img src="${spot.img}" class="popup-img" />` : '';
-      const safeTitleArg = escapeHtml(spot.title).replace(/'/g, "\\'");
       const adminControls = adminPassword ? `
         <div class="admin-popup-actions">
           <button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ 編集</button>
@@ -781,7 +825,7 @@
           <h4 style="margin:4px 0; font-size:0.95rem;">${escapeHtml(spot.title)}</h4>
           <p style="font-size:0.82rem; color:#444; line-height:1.4;">${escapeHtml(spot.desc)}</p>
           ${imgHtml}
-          <button class="btn-nav-sm" onclick="startNavigation(${spot.lat}, ${spot.lng}, '${safeTitleArg}')">🧭 ここへナビ</button>
+          <button class="btn-nav-sm" onclick="startNavigationById(${spot.id})">🧭 ここへナビ</button>
           ${adminControls}
         </div>
       `;
