@@ -135,26 +135,6 @@
     }
     .nav-external-btn:hover { background: #0277bd; }
 
-    #tankyu-panel {
-      display: none;
-      position: fixed;
-      bottom: 80px;
-      left: 10px;
-      right: 10px;
-      max-width: 480px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.96);
-      border-left: 5px solid #1565c0;
-      border-radius: 8px;
-      padding: 12px 14px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-      z-index: 1000;
-      font-size: 0.85rem;
-    }
-    #tankyu-panel h3 { color: #1565c0; margin-bottom: 6px; font-size: 0.95rem; }
-    .legend-item { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-    .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-
     .fab-btn {
       position: fixed;
       bottom: 20px;
@@ -289,7 +269,7 @@
   <button class="filter-btn" onclick="filterSpots('danger', this)">⚠️ 危険箇所</button>
   <button class="filter-btn" onclick="filterSpots('local', this)">🏪 ローカル・穴場</button>
   <button class="filter-btn" onclick="filterSpots('fishing', this)">🎣 釣り場</button>
-  <button class="filter-btn tankyu-btn" onclick="toggleTankyu(this)">📊 地域探究レイヤー</button>
+  <button class="filter-btn tankyu-btn" onclick="filterSpots('tankyu', this)">📊 地域探索レイヤー</button>
 </div>
 
 <div id="map"></div>
@@ -308,14 +288,6 @@
   <a id="googleMapsLink" class="nav-external-btn" href="#" target="_blank" rel="noopener">📱 Googleマップで音声ナビを開始</a>
 </div>
 
-<div id="tankyu-panel">
-  <h3>📊 地域探究データ：農業分布＆年齢層</h3>
-  <p>地区ごとの主な農作物と人口構成（高齢化率・若年層）の傾向を重ねて表示しています。</p>
-  <div class="legend-item"><span class="dot" style="background:#43a047;"></span> <strong>加久藤・飯野盆地エリア</strong>：水田（ひのひかり）中心／子育て世代・学校が集中</div>
-  <div class="legend-item"><span class="dot" style="background:#fb8c00;"></span> <strong>山麓・畑作エリア</strong>：露地野菜・畜産・果樹／高齢化率が高め（45%超）</div>
-  <div class="legend-item"><span class="dot" style="background:#1e88e5;"></span> <strong>川内川流域エリア</strong>：河川敷・用水路網／防災・水害対策の重要地域</div>
-</div>
-
 <button class="fab-btn" onclick="openModal()">＋ スポットを投稿</button>
 
 <!-- 初期表示エリア選択モーダル -->
@@ -324,16 +296,16 @@
     <h2>📍 表示する初期エリアを選択</h2>
     <p style="font-size:0.83rem; color:#555; margin-bottom:14px;">地図を開く中心地点を3つのエリアから選んでください（画面右上の「📍 エリア切替」からいつでも変更できます）。</p>
     <button class="location-choice-btn" onclick="selectInitialLocation(0)">
-      <strong>①　飯野・中心エリア（飯野駅周辺）</strong>
+      <strong>① 真幸・東エリア（岡松周辺）</strong>
       <span>緯度: 32.030525 / 経度: 130.8706972</span>
     </button>
     <button class="location-choice-btn" onclick="selectInitialLocation(1)">
-      <strong>② 加久藤・西エリア（小田・加久藤周辺）</strong>
+      <strong>② 飯野・中心エリア（飯野駅周辺）</strong>
       <span>緯度: 32.0424583 / 経度: 130.8155250</span>
     </button>
     <button class="location-choice-btn" onclick="selectInitialLocation(2)">
-      <strong>③ 真幸・東エリア（岡松周辺）</strong>
-      <span>北緯32度2分42.89秒 / 東経130度46分2.27秒</span>
+      <strong>③ 加久藤・西エリア（小田・加久藤周辺）</strong>
+      <span>緯度: 32.0452472 / 経度: 130.7672972</span>
     </button>
   </div>
 </div>
@@ -348,15 +320,16 @@
         <option value="danger">⚠️ 危険箇所（通学路・農道）</option>
         <option value="local">🏪 ローカル店・穴場</option>
         <option value="fishing">🎣 釣り場・アウトドア</option>
+        <option value="tankyu">📊 地域探索レイヤー（調査・農業・歴史など）</option>
       </select>
     </div>
     <div class="form-group">
-      <label>タイトル（場所の名前など）</label>
-      <input type="text" id="spotTitle" placeholder="例：〇〇農道入口のカーブミラーなし" />
+      <label>タイトル（場所の名前・調査テーマなど）</label>
+      <input type="text" id="spotTitle" placeholder="例：〇〇地区の水田分布・通学路調査" />
     </div>
     <div class="form-group">
-      <label>詳細メモ（状況・釣れる魚・おすすめポイント）</label>
-      <textarea id="spotDesc" rows="3" placeholder="例：朝夕の通学時間帯は軽トラが多く見通しが悪いため注意。"></textarea>
+      <label>詳細メモ（調査結果・状況・おすすめポイント）</label>
+      <textarea id="spotDesc" rows="3" placeholder="例：調べた内容や現地の様子を入力してください。"></textarea>
     </div>
     <div class="form-group">
       <label>位置情報（緯度, 経度）※地図クリックでも自動入力されます</label>
@@ -385,6 +358,7 @@
         <option value="danger">⚠️ 危険箇所（通学路・農道）</option>
         <option value="local">🏪 ローカル店・穴場</option>
         <option value="fishing">🎣 釣り場・アウトドア</option>
+        <option value="tankyu">📊 地域探索レイヤー（調査・農業・歴史など）</option>
       </select>
     </div>
     <div class="form-group">
@@ -434,15 +408,15 @@
   let sharedSpots = [];
   let currentFilter = 'all';
   let markersLayer = L.layerGroup().addTo(map);
-  let tankyuLayer = L.layerGroup();
   let navLayer = L.layerGroup().addTo(map);
   let supabaseClient = null;
   let adminPassword = '';
 
   const catMeta = {
-    danger: { label: '⚠️ 危険箇所', color: '#d32f2f' },
-    local:  { label: '🏪 ローカル・穴場', color: '#2e7d32' },
-    fishing:{ label: '🎣 釣り場', color: '#0288d1' }
+    danger:  { label: '⚠️ 危険箇所', color: '#d32f2f' },
+    local:   { label: '🏪 ローカル・穴場', color: '#2e7d32' },
+    fishing: { label: '🎣 釣り場', color: '#0288d1' },
+    tankyu:  { label: '📊 地域探索レイヤー', color: '#1565c0' }
   };
 
   if (SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY) {
@@ -458,10 +432,6 @@
   // ナビゲーション開始処理
   function startNavigation(destLat, destLng, title) {
     map.closePopup();
-    // 探究パネルが開いていたら閉じて重なりを防ぐ
-    if (tankyuVisible) {
-      toggleTankyu(document.querySelector('.tankyu-btn'));
-    }
 
     const navPanel = document.getElementById('nav-panel');
     document.getElementById('navTargetTitle').textContent = `🧭 ${title}`;
@@ -476,7 +446,6 @@
       document.getElementById('navOriginNote').textContent = `出発地：${originLabel}`;
       document.getElementById('googleMapsLink').href = `https://www.google.com/maps/dir/?api=1&origin=${origLat},${origLng}&destination=${destLat},${destLng}`;
 
-      // 出発地マーカー
       L.circleMarker([origLat, origLng], {
         radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1
       }).bindPopup(`🚩 出発地（${originLabel}）`).addTo(navLayer);
@@ -502,7 +471,6 @@
           throw new Error('Route not found');
         }
       } catch (e) {
-        // 経路検索失敗時は直線で表示
         const line = L.polyline([[origLat, origLng], [destLat, destLng]], {
           color: '#0288d1', weight: 4, dashArray: '8, 8'
         }).addTo(navLayer);
@@ -754,53 +722,10 @@
     }
   }
 
-  function initTankyuLayer() {
-    const areas = [
-      {
-        name: '飯野・加久藤 盆地水田エリア',
-        lat: 32.0480, lng: 130.8050, radius: 1400, color: '#43a047',
-        info: '【農業】水田率85%以上（ブランド米・ひのひかり）<br>【人口】15歳未満比率が市内最高水準・通学路集中地区'
-      },
-      {
-        name: '山麓・畑作・畜産エリア',
-        lat: 32.0268, lng: 130.8225, radius: 1300, color: '#fb8c00',
-        info: '【農業】露地野菜・サツマイモ・肉用牛繁殖<br>【人口】65歳以上比率 46.2%（移動支援・農道安全が課題）'
-      },
-      {
-        name: '川内川 流域防災・水利エリア',
-        lat: 32.0550, lng: 130.7850, radius: 1200, color: '#1e88e5',
-        info: '【地形】河川氾濫想定区域・農業用水路網<br>【探究】過去の豪雨災害履歴とハザードマップ比較対象'
-      }
-    ];
-    areas.forEach(a => {
-      L.circle([a.lat, a.lng], {
-        color: a.color, fillColor: a.color, fillOpacity: 0.22, radius: a.radius
-      })
-      .bindPopup(`<strong>📊 ${a.name}</strong><br><div style="font-size:0.82rem; margin-top:4px;">${a.info}</div>`)
-      .addTo(tankyuLayer);
-    });
-  }
-
   function filterSpots(cat, btn) {
-    document.querySelectorAll('.filter-btn:not(.tankyu-btn)').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderMarkers(cat);
-  }
-
-  let tankyuVisible = false;
-  function toggleTankyu(btn) {
-    tankyuVisible = !tankyuVisible;
-    const panel = document.getElementById('tankyu-panel');
-    if (tankyuVisible) {
-      clearNavigation();
-      btn.classList.add('active');
-      tankyuLayer.addTo(map);
-      panel.style.display = 'block';
-    } else {
-      btn.classList.remove('active');
-      map.removeLayer(tankyuLayer);
-      panel.style.display = 'none';
-    }
   }
 
   map.on('click', (e) => {
@@ -821,7 +746,6 @@
   function openModal() { document.getElementById('postModal').style.display = 'flex'; }
   function closeModal() { document.getElementById('postModal').style.display = 'none'; }
 
-  initTankyuLayer();
   loadSpots();
 </script>
 </body>
