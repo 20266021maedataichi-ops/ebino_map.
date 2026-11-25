@@ -257,6 +257,39 @@
     .custom-go-btn:hover { background: #0d47a1; }
     .custom-go-btn:disabled { background: #999; cursor: not-allowed; }
 
+    /* 検索結果リスト */
+    #searchResultsList {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .search-result-item {
+      background: #fff;
+      border: 1px solid #90caf9;
+      border-radius: 6px;
+      padding: 7px 10px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: 0.15s;
+    }
+    .search-result-item:hover {
+      background: #bbdefb;
+      border-color: #1565c0;
+    }
+    .search-result-item .res-title {
+      font-weight: bold;
+      color: #0d47a1;
+      display: block;
+    }
+    .search-result-item .res-sub {
+      font-size: 0.72rem;
+      color: #555;
+      display: block;
+      margin-top: 2px;
+    }
+
     .popup-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-bottom: 4px; }
     .btn-nav-sm {
@@ -352,14 +385,15 @@
     <!-- 自分で場所を設定できる欄 -->
     <div class="custom-location-box">
       <strong>④ 自分で場所を設定して移動</strong>
-      <div style="font-size:0.76rem; color:#333;">施設名・駅名・地名で検索するか、緯度・経度を入力してください。</div>
+      <div style="font-size:0.75rem; color:#333;">えびの市周辺の施設・住所を検索して候補から選ぶか、GoogleマップのURL・緯度経度を貼り付けてください。</div>
       <div class="custom-input-row">
-        <input type="text" id="customPlaceQuery" placeholder="例：えびの市役所 / 京町温泉駅" onkeydown="if(event.key==='Enter') searchCustomPlace()" />
-        <button type="button" class="custom-go-btn" id="placeSearchBtn" onclick="searchCustomPlace()">🔍 検索して移動</button>
+        <input type="text" id="customPlaceQuery" placeholder="例：えびの市役所 / 京町温泉駅 / 上江" onkeydown="if(event.key==='Enter') searchCustomPlace()" />
+        <button type="button" class="custom-go-btn" id="placeSearchBtn" onclick="searchCustomPlace()">🔍 候補検索</button>
       </div>
-      <div class="custom-input-row">
-        <input type="text" id="customLatLngInput" placeholder="座標直接入力: 32.04246, 130.81553" onkeydown="if(event.key==='Enter') applyCustomLatLng()" />
-        <button type="button" class="custom-go-btn" style="background:#0277bd;" onclick="applyCustomLatLng()">座標で移動</button>
+      <div id="searchResultsList"></div>
+      <div class="custom-input-row" style="margin-top:8px;">
+        <input type="text" id="customLatLngInput" placeholder="座標 or GoogleマップURLを貼付" onkeydown="if(event.key==='Enter') applyCustomLatLng()" />
+        <button type="button" class="custom-go-btn" style="background:#0277bd;" onclick="applyCustomLatLng()">移動</button>
       </div>
     </div>
   </div>
@@ -460,71 +494,137 @@
     moveToLocation(loc.name, loc.lat, loc.lng);
   }
 
+  // えびの市周辺（小林市・湧水町・人吉市の一部を含む半径約25km圏内）判定
+  function isNearEbino(lat, lng) {
+    return lat >= 31.88 && lat <= 32.22 && lng >= 130.60 && lng <= 131.05;
+  }
+
   async function searchCustomPlace() {
     const query = document.getElementById('customPlaceQuery').value.trim();
     const btn = document.getElementById('placeSearchBtn');
+    const listEl = document.getElementById('searchResultsList');
+
     if (!query) {
-      alert('検索したい施設名・駅名・地名を入力してください（例：えびの市役所）。');
+      alert('検索したい施設名・駅名・地名を入力してください。');
       return;
     }
 
     btn.disabled = true;
     btn.textContent = '検索中...';
+    listEl.innerHTML = '<div style="font-size:0.78rem; color:#1565c0; padding:4px;">えびの市周辺を検索中...</div>';
 
     try {
-      // 1. まず施設名・ランドマークに強いOpenStreetMap（Nominatim）でえびの市周辺を優先検索
-      const searchWord = (query.includes('えびの') || query.includes('宮崎')) ? query : `えびの市 ${query}`;
-      const viewbox = '130.65,32.15,130.98,31.93'; // えびの市周辺の緯度経度範囲
-      const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&accept-language=ja&limit=5&viewbox=${viewbox}&q=${encodeURIComponent(searchWord)}`;
-      const nomRes = await fetch(nomUrl);
-      const nomData = await nomRes.json();
+      const candidates = [];
+      const seenKeys = new Set();
 
-      if (nomData && nomData.length > 0) {
-        // えびの市・宮崎県内の結果を最優先で選ぶ
-        const best = nomData.find(item => item.display_name && (item.display_name.includes('えびの市') || item.display_name.includes('宮崎県'))) || nomData[0];
-        const lat = parseFloat(best.lat);
-        const lng = parseFloat(best.lon);
-        const shortName = best.display_name ? best.display_name.split(',')[0] : query;
-        moveToLocation(`④ ${shortName}`, lat, lng);
-        return;
+      const addCandidate = (title, sub, lat, lng) => {
+        if (!isNearEbino(lat, lng)) return;
+        const key = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
+        if (seenKeys.has(key)) return;
+        seenKeys.add(key);
+        candidates.push({ title, sub, lat, lng });
+      };
+
+      // 1. OpenStreetMap（bounded=1 でえびの市周辺に厳密限定）
+      const viewbox = '130.60,32.22,131.05,31.88';
+      const nomQueries = [
+        `えびの市 ${query}`,
+        query
+      ];
+
+      for (const q of nomQueries) {
+        const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&accept-language=ja&limit=8&viewbox=${viewbox}&bounded=1&q=${encodeURIComponent(q)}`;
+        const nomRes = await fetch(nomUrl);
+        const nomData = await nomRes.json();
+        if (Array.isArray(nomData)) {
+          nomData.forEach(item => {
+            const parts = (item.display_name || '').split(',').map(s => s.trim());
+            const title = parts[0] || query;
+            const sub = parts.slice(1, 4).join(' ');
+            addCandidate(title, sub, parseFloat(item.lat), parseFloat(item.lon));
+          });
+        }
+        if (candidates.length >= 5) break;
       }
 
-      // 2. 見つからない場合は国土地理院の住所検索APIで再検索（宮崎県内の結果を優先）
-      const gsiRes = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(searchWord)}`);
+      // 2. 国土地理院の住所検索API（えびの市周辺のみ抽出）
+      const gsiWord = query.includes('えびの') ? query : `えびの市${query}`;
+      const gsiRes = await fetch(`https://msearch.gsi.go.jp/address-search/AddressSearch?q=${encodeURIComponent(gsiWord)}`);
       const gsiData = await gsiRes.json();
+      if (Array.isArray(gsiData)) {
+        gsiData.forEach(item => {
+          if (item.geometry && item.geometry.coordinates) {
+            const [lng, lat] = item.geometry.coordinates;
+            const fullTitle = (item.properties && item.properties.title) || query;
+            addCandidate(fullTitle, '国土地理院 住所データ', lat, lng);
+          }
+        });
+      }
 
-      if (gsiData && gsiData.length > 0) {
-        const bestGsi = gsiData.find(item => item.properties && item.properties.title && (item.properties.title.includes('えびの市') || item.properties.title.includes('宮崎県'))) || gsiData[0];
-        const [lng, lat] = bestGsi.geometry.coordinates;
-        const foundTitle = bestGsi.properties.title || query;
-        moveToLocation(`④ ${foundTitle}`, lat, lng);
+      listEl.innerHTML = '';
+      if (candidates.length === 0) {
+        listEl.innerHTML = `
+          <div style="background:#fff3e0; border:1px solid #ffb74d; border-radius:6px; padding:8px; font-size:0.78rem; color:#e65100;">
+            えびの市周辺で「${escapeHtml(query)}」の候補が見つかりませんでした。<br>
+            ※ Googleマップでその場所を開き、上のURL（または緯度,経度）をコピーして下の欄に貼り付けると確実に移動できます。
+          </div>
+        `;
         return;
       }
 
-      alert('「' + query + '」が見つかりませんでした。\n「えびの市 〇〇」のように市名をつけるか、下の欄にGoogleマップ等からコピーした「緯度, 経度」を貼り付けて移動してください。');
+      candidates.slice(0, 6).forEach(c => {
+        const btnItem = document.createElement('button');
+        btnItem.type = 'button';
+        btnItem.className = 'search-result-item';
+        btnItem.innerHTML = `
+          <span class="res-title">📍 ${escapeHtml(c.title)}</span>
+          <span class="res-sub">${escapeHtml(c.sub)}（${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}）</span>
+        `;
+        btnItem.onclick = () => moveToLocation(`④ ${c.title}`, c.lat, c.lng);
+        listEl.appendChild(btnItem);
+      });
     } catch (e) {
       console.error(e);
-      alert('検索中に通信エラーが発生しました。下の欄に「緯度, 経度」を直接入力して移動できます。');
+      listEl.innerHTML = '<div style="font-size:0.78rem; color:#c62828;">検索中に通信エラーが発生しました。下の欄に座標またはGoogleマップURLを貼って移動してください。</div>';
     } finally {
       btn.disabled = false;
-      btn.textContent = '🔍 検索して移動';
+      btn.textContent = '🔍 候補検索';
     }
   }
 
   function applyCustomLatLng() {
     const raw = document.getElementById('customLatLngInput').value.trim();
-    const parts = raw.split(/[,、\s]+/);
-    if (parts.length < 2) {
-      alert('緯度と経度をカンマ区切りで入力してください（例：32.04246, 130.81553）。');
+    if (!raw) {
+      alert('座標（例：32.04246, 130.81553）またはGoogleマップのURLを貼り付けてください。');
       return;
     }
-    const lat = parseFloat(parts[0]);
-    const lng = parseFloat(parts[1]);
+
+    let lat = NaN;
+    let lng = NaN;
+
+    // GoogleマップURL内の @緯度,経度 または !3d緯度!4d経度 を自動抽出
+    const atMatch = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    const dMatch = raw.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+
+    if (dMatch) {
+      lat = parseFloat(dMatch[1]);
+      lng = parseFloat(dMatch[2]);
+    } else if (atMatch) {
+      lat = parseFloat(atMatch[1]);
+      lng = parseFloat(atMatch[2]);
+    } else {
+      const parts = raw.split(/[,、\s]+/);
+      if (parts.length >= 2) {
+        lat = parseFloat(parts[0]);
+        lng = parseFloat(parts[1]);
+      }
+    }
+
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      alert('正しい緯度・経度の数値を入力してください。');
+      alert('座標を読み取れませんでした。\n「32.04246, 130.81553」の形か、ブラウザのGoogleマップURLをそのまま貼り付けてください。');
       return;
     }
-    moveToLocation(`④ 指定座標 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
+    moveToLocation(`④ 指定地点 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng);
   }
 
   function openLocationModal() {
