@@ -58,6 +58,7 @@
       overflow-x: auto;
       border-bottom: 1px solid #ddd;
       z-index: 999;
+      align-items: center;
     }
     .filter-btn {
       border: 1px solid #ccc;
@@ -78,6 +79,24 @@
     .filter-btn.tankyu-btn.active {
       background: #1565c0;
       border-color: #1565c0;
+    }
+    .map-layer-btn {
+      margin-left: auto;
+      border: 1px solid #455a64;
+      background: #eceff1;
+      color: #263238;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: 0.2s;
+    }
+    .map-layer-btn.photo-active {
+      background: #37474f;
+      color: #fff;
+      border-color: #263238;
     }
 
     #map { flex: 1; width: 100%; z-index: 1; }
@@ -357,6 +376,7 @@
   <button class="filter-btn" onclick="filterSpots('local', this)">🏪 ローカル・穴場</button>
   <button class="filter-btn" onclick="filterSpots('fishing', this)">🎣 釣り場</button>
   <button class="filter-btn tankyu-btn" onclick="filterSpots('tankyu', this)">📊 地域探索レイヤー</button>
+  <button class="map-layer-btn" id="mapLayerBtn" onclick="toggleBaseMap()">🛰️ 航空写真に切替</button>
 </div>
 
 <div id="map"></div>
@@ -494,9 +514,37 @@
   let currentBaseLocation = presetLocations[1];
 
   const map = L.map('map').setView([currentBaseLocation.lat, currentBaseLocation.lng], 15);
-  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>'
-  }).addTo(map);
+
+  // 標準地図（デフォルメ地図）と航空写真レイヤーの定義
+  const stdTileLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+    maxZoom: 18
+  });
+
+  const photoTileLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {
+    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（全国最新写真）</a>',
+    maxZoom: 18
+  });
+
+  let isPhotoMode = false;
+  stdTileLayer.addTo(map);
+
+  function toggleBaseMap() {
+    const btn = document.getElementById('mapLayerBtn');
+    if (isPhotoMode) {
+      map.removeLayer(photoTileLayer);
+      stdTileLayer.addTo(map);
+      isPhotoMode = false;
+      btn.classList.remove('photo-active');
+      btn.textContent = '🛰️ 航空写真に切替';
+    } else {
+      map.removeLayer(stdTileLayer);
+      photoTileLayer.addTo(map);
+      isPhotoMode = true;
+      btn.classList.add('photo-active');
+      btn.textContent = '🗺️ 標準地図に戻す';
+    }
+  }
 
   function moveToLocation(name, lat, lng, zoom = 16) {
     currentBaseLocation = { name, lat, lng };
@@ -684,7 +732,6 @@
         radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1
       }).bindPopup(`🚩 出発地（${originLabel}）`).addTo(navLayer);
 
-      // 4秒以内に応答がなければ直線案内へ切り替える
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
 
