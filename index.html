@@ -143,6 +143,33 @@
     .color-swatch.selected { border-color: #222; transform: scale(1.1); }
     #map.drawing-cursor { cursor: crosshair !important; }
   </style>
+    <script>
+  (function() {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1b5e20"/>
+          <stop offset="100%" stop-color="#2e7d32"/>
+        </linearGradient>
+      </defs>
+      <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+      <path d="M64 380 L180 230 L265 320 L345 210 L448 380 Z" fill="#81c784" opacity="0.45"/>
+      <path d="M64 410 Q190 360 300 400 T448 385 L448 448 L64 448 Z" fill="#4fc3f7" opacity="0.75"/>
+      <path d="M256 92 C192 92 140 144 140 208 C140 295 256 404 256 404 C256 404 372 295 372 208 C372 144 320 92 256 92 Z" fill="#ff9800" stroke="#ffffff" stroke-width="16"/>
+      <circle cx="256" cy="206" r="44" fill="#ffffff"/>
+    </svg>`;
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      const pngUrl = canvas.toDataURL('image/png');
+      document.querySelectorAll('link[rel*="icon"]').forEach(el => el.href = pngUrl);
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  })();
+</script>
 </head>
 <body>
 
