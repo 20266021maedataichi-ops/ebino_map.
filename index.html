@@ -428,7 +428,7 @@
       margin-bottom: 4px;
     }
     .comments-list {
-      max-height: 95px;
+      max-height: 110px;
       overflow-y: auto;
       background: #f9fbf9;
       border: 1px solid #e0e6e0;
@@ -438,11 +438,16 @@
       font-size: 0.74rem;
     }
     .comment-item {
-      padding: 3px 0;
+      padding: 4px 0;
       border-bottom: 1px dashed #e0e0e0;
       line-height: 1.35;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 4px;
     }
     .comment-item:last-child { border-bottom: none; }
+    .comment-body-wrap { flex: 1; word-break: break-word; }
     .comment-meta {
       font-weight: bold;
       color: #2e7d32;
@@ -453,6 +458,22 @@
       color: #888;
       margin-left: 4px;
     }
+    .comment-admin-btns {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+    .btn-c-edit, .btn-c-del {
+      border: none;
+      border-radius: 3px;
+      padding: 2px 5px;
+      font-size: 0.68rem;
+      cursor: pointer;
+      color: #fff;
+    }
+    .btn-c-edit { background: #1565c0; }
+    .btn-c-del { background: #c62828; }
+
     .comment-form {
       display: flex;
       flex-direction: column;
@@ -702,6 +723,27 @@
   </div>
 </div>
 
+<!-- 管理者用：コメント編集モーダル -->
+<div class="modal-overlay" id="editCommentModal">
+  <div class="modal">
+    <h2 style="color:#1565c0;">💬 コメントを編集（管理者専用）</h2>
+    <input type="hidden" id="editCommentSpotId" />
+    <input type="hidden" id="editCommentId" />
+    <div class="form-group">
+      <label>投稿者名</label>
+      <input type="text" id="editCommentAuthor" maxlength="20" />
+    </div>
+    <div class="form-group">
+      <label>コメント内容（最大120文字）</label>
+      <textarea id="editCommentText" rows="3" maxlength="120"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditCommentModal()">キャンセル</button>
+      <button class="btn-submit" style="background:#1565c0;" id="updateCommentBtn" onclick="saveEditedComment()">コメントを更新</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const SUPABASE_URL = "https://cmmskpvovjhurmlzxixp.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNtbXNrcHZvdmpodXJtbHp4aXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU1MDg4ODAsImV4cCI6MjExMTA4NDg4MH0.-GkuvSH2I3y6uQVBtn_-a61woHpcibWMcRyrom133Hw";
@@ -770,7 +812,6 @@
       btn.classList.add('photo-active');
       btn.textContent = '🗺️ 標準地図に戻す';
     }
-    // 防災オーバーレイが有効なら常に最前面（ベース地図の上）に再配置
     if (activeHazardKey !== 'none' && hazardTileLayers[activeHazardKey]) {
       hazardTileLayers[activeHazardKey].bringToFront();
     }
@@ -990,24 +1031,36 @@
     }).join('');
 
     const commentsListHtml = comments.length > 0
-      ? comments.map(c => `
-          <div class="comment-item">
-            <span class="comment-meta">${escapeHtml(c.author || '匿名')}:</span>
-            <span>${escapeHtml(c.text)}</span>
-            <span class="comment-time">${escapeHtml(c.created_at || '')}</span>
-          </div>
-        `).join('')
+      ? comments.map(c => {
+          const cId = Number(c.id);
+          const commentAdminHtml = (adminPassword && !isNaN(cId)) ? `
+            <span class="comment-admin-btns">
+              <button type="button" class="btn-c-edit" title="コメントを編集" onclick="openEditCommentModal(${spot.id}, ${cId})">✏️</button>
+              <button type="button" class="btn-c-del" title="コメントを削除" onclick="deleteSpotComment(${spot.id}, ${cId})">🗑️</button>
+            </span>
+          ` : '';
+          return `
+            <div class="comment-item">
+              <div class="comment-body-wrap">
+                <span class="comment-meta">${escapeHtml(c.author || '匿名')}:</span>
+                <span>${escapeHtml(c.text)}</span>
+                <span class="comment-time">${escapeHtml(c.created_at || '')}</span>
+              </div>
+              ${commentAdminHtml}
+            </div>
+          `;
+        }).join('')
       : '<div style="color:#888; font-size:0.72rem;">まだ現地追記はありません。</div>';
 
     const adminControls = adminPassword ? `
       <div class="admin-popup-actions">
-        <button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ 編集</button>
-        <button class="btn-del-sm" onclick="deleteSpot(${spot.id})">🗑️ 削除</button>
+        <button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ ピン編集</button>
+        <button class="btn-del-sm" onclick="deleteSpot(${spot.id})">🗑️ ピン削除</button>
       </div>
     ` : '';
 
     return `
-      <div style="min-width:235px; max-width:270px;">
+      <div style="min-width:240px; max-width:275px;">
         <span class="badge" style="background:${meta.color};">${meta.label}</span>
         <h4 style="margin:4px 0; font-size:0.95rem;">${escapeHtml(spot.title)}</h4>
         <p style="font-size:0.82rem; color:#444; line-height:1.4;">${escapeHtml(spot.desc)}</p>
@@ -1079,6 +1132,94 @@
         sendBtn.disabled = false;
         sendBtn.textContent = '追記';
       }
+    }
+  }
+
+  // 管理者用：コメント編集モーダルを開く
+  function openEditCommentModal(spotId, commentId) {
+    const target = sharedSpots.find(s => s.id === spotId);
+    if (!target || !Array.isArray(target.comments)) return;
+    const comment = target.comments.find(c => Number(c.id) === Number(commentId));
+    if (!comment) return;
+
+    document.getElementById('editCommentSpotId').value = spotId;
+    document.getElementById('editCommentId').value = commentId;
+    document.getElementById('editCommentAuthor').value = comment.author || '匿名';
+    document.getElementById('editCommentText').value = comment.text || '';
+    document.getElementById('editCommentModal').style.display = 'flex';
+  }
+
+  function closeEditCommentModal() {
+    document.getElementById('editCommentModal').style.display = 'none';
+  }
+
+  // 管理者用：コメント更新を実行
+  async function saveEditedComment() {
+    const spotId = Number(document.getElementById('editCommentSpotId').value);
+    const commentId = Number(document.getElementById('editCommentId').value);
+    const author = document.getElementById('editCommentAuthor').value.trim();
+    const text = document.getElementById('editCommentText').value.trim();
+    const btn = document.getElementById('updateCommentBtn');
+
+    if (!text) {
+      alert('コメント内容を入力してください。');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '更新中...';
+
+    try {
+      const { data, error } = await supabaseClient.rpc('admin_update_spot_comment', {
+        admin_pass: adminPassword,
+        target_spot_id: spotId,
+        target_comment_id: commentId,
+        new_author: author || '匿名',
+        new_text: text
+      });
+      if (error) throw error;
+
+      const target = sharedSpots.find(s => s.id === spotId);
+      if (target && data) {
+        target.comments = data;
+        if (markerMap[spotId]) {
+          markerMap[spotId].setPopupContent(buildPopupHtml(target));
+        }
+      }
+      closeEditCommentModal();
+      alert('コメントを更新しました。');
+    } catch (err) {
+      console.error(err);
+      alert('コメントの更新に失敗しました（パスワードが違うか、SQL関数が未設定です）：' + (err.message || ''));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'コメントを更新';
+    }
+  }
+
+  // 管理者用：コメント削除を実行
+  async function deleteSpotComment(spotId, commentId) {
+    if (!confirm('このコメントを削除しますか？')) return;
+
+    try {
+      const { data, error } = await supabaseClient.rpc('admin_delete_spot_comment', {
+        admin_pass: adminPassword,
+        target_spot_id: spotId,
+        target_comment_id: commentId
+      });
+      if (error) throw error;
+
+      const target = sharedSpots.find(s => s.id === spotId);
+      if (target && data) {
+        target.comments = data;
+        if (markerMap[spotId]) {
+          markerMap[spotId].setPopupContent(buildPopupHtml(target));
+        }
+      }
+      alert('コメントを削除しました。');
+    } catch (err) {
+      console.error(err);
+      alert('コメントの削除に失敗しました（パスワードが違うか、SQL関数が未設定です）：' + (err.message || ''));
     }
   }
 
@@ -1264,7 +1405,7 @@
         btn.classList.add('active');
         btn.textContent = '👑 管理者ON';
         renderMarkers(currentFilter);
-        alert('管理者モードになりました。すべてのピンの吹き出しから「編集」「削除」ができます。');
+        alert('管理者モードになりました。ピンやコメントの「編集」「削除」ができます。');
       }
     }
   }
@@ -1276,7 +1417,6 @@
       return;
     }
 
-    // 入力中のコメント欄がある場合は吹き出しを閉じずに中身だけ更新
     let openedSpotId = null;
     Object.keys(markerMap).forEach(id => {
       if (markerMap[id] && markerMap[id].isPopupOpen()) {
@@ -1323,7 +1463,7 @@
       });
 
       const marker = L.marker([spot.lat, spot.lng], { icon: customIcon })
-        .bindPopup(buildPopupHtml(spot), { maxWidth: 290 })
+        .bindPopup(buildPopupHtml(spot), { maxWidth: 295 })
         .addTo(markersLayer);
 
       markerMap[spot.id] = marker;
