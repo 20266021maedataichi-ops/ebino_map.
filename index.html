@@ -163,6 +163,17 @@
   .tut-btn-next { flex: 2; padding: 10px; border: none; background: #2e7d32; color: #fff; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; }
   .tut-skip-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem; color: #666; }
   .tut-skip-link { background: none; border: none; color: #888; text-decoration: underline; cursor: pointer; font-size: 0.78rem; }
+      /* ハッシュタグ機能用スタイル */
+  .hashtag-bar { display: flex; gap: 6px; padding: 6px 10px; background: #f1f8e9; border-bottom: 1px solid #c5e1a5; overflow-x: auto; align-items: center; font-size: 0.78rem; z-index: 998; }
+  .hashtag-bar-label { font-weight: bold; color: #33691e; white-space: nowrap; flex-shrink: 0; }
+  .hashtag-chip { background: #fff; color: #1b5e20; border: 1px solid #81c784; border-radius: 14px; padding: 3px 10px; font-size: 0.76rem; cursor: pointer; white-space: nowrap; transition: 0.15s; }
+  .hashtag-chip:hover { background: #dcedc8; }
+  .hashtag-chip.active { background: #2e7d32; color: #fff; border-color: #1b5e20; font-weight: bold; }
+  .tag-suggest-box { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; padding: 6px; background: #f8faf8; border: 1px dashed #a5d6a7; border-radius: 6px; }
+  .tag-suggest-btn { background: #e8f5e9; color: #1b5e20; border: 1px solid #81c784; border-radius: 12px; padding: 3px 8px; font-size: 0.74rem; cursor: pointer; transition: 0.15s; }
+  .tag-suggest-btn:hover { background: #c8e6c9; }
+  .inline-hashtag { display: inline-block; background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; border-radius: 10px; padding: 0 6px; margin: 1px 2px; font-size: 0.76rem; font-weight: bold; cursor: pointer; }
+  .inline-hashtag:hover { background: #bbdefb; }
   </style>
     <script>
   (function() {
@@ -228,6 +239,10 @@
     <button class="map-layer-btn" id="mapLayerBtn" onclick="toggleBaseMap()">🛰️ 航空写真に切替</button>
     <button class="hazard-toggle-btn" id="hazardBtn" onclick="toggleHazardPanel()">🛡️ 防災・地形・過去写真</button>
   </div>
+</div>
+       <div class="hashtag-bar" id="hashtagBar">
+  <span class="hashtag-bar-label">🏷️ タグ絞り込み:</span>
+  <span style="color:#666; font-size:0.74rem;">タグ付き投稿を読み込み中...</span>
 </div>
 
 <div id="hazardPanel">
@@ -397,6 +412,7 @@
     <div class="form-group">
       <label>詳細メモ（調査結果・状況・おすすめポイント）</label>
       <textarea id="spotDesc" rows="3" placeholder="例：調べた内容や現地の様子を入力してください。"></textarea>
+        <div id="postTagSuggestions" class="tag-suggest-box"></div>
     </div>
     <div class="form-group">
       <label>位置情報（緯度, 経度）※地図クリックでも自動入力されます</label>
@@ -434,6 +450,7 @@
     <div class="form-group">
       <label>詳細メモ</label>
       <textarea id="editSpotDesc" rows="4"></textarea>
+        <div id="editTagSuggestions" class="tag-suggest-box"></div>
     </div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeEditModal()">キャンセル</button>
@@ -1434,6 +1451,109 @@
   if (localStorage.getItem('ebino_hide_tutorial') !== '1') {
     setTimeout(openTutorial, 500);
   }
+    // --- ハッシュタグ機能（候補挿入・自動リンク・絞り込み） ---
+  const RECOMMENDED_HASHTAGS = [
+    '#えびの探究', '#昔と今', '#湧水・川', '#農業・田畑',
+    '#通学路安全', '#冠水注意', '#土砂警戒',
+    '#絶景スポット', '#ローカルグルメ',
+    '#飯野地区', '#加久藤地区', '#真幸地区'
+  ];
+  let activeHashtag = '';
+
+  function insertHashtagTo(textareaId, tag) {
+    const el = document.getElementById(textareaId);
+    if (!el) return;
+    const val = el.value;
+    if (val.includes(tag)) return;
+    const sep = (val.length === 0 || val.endsWith(' ') || val.endsWith('\n')) ? '' : ' ';
+    el.value = val + sep + tag + ' ';
+    el.focus();
+  }
+
+  function renderTagSuggestionButtons(containerId, textareaId) {
+    const box = document.getElementById(containerId);
+    if (!box) return;
+    box.innerHTML = '<span style="width:100%; font-size:0.72rem; color:#555; font-weight:bold;">🏷️ タップでタグを追加（自由入力もOK）：</span>' +
+      RECOMMENDED_HASHTAGS.map(tag =>
+        `<button type="button" class="tag-suggest-btn" onclick="insertHashtagTo('${textareaId}', '${tag}')">${tag}</button>`
+      ).join('');
+  }
+
+  renderTagSuggestionButtons('postTagSuggestions', 'spotDesc');
+  renderTagSuggestionButtons('editTagSuggestions', 'editSpotDesc');
+
+  function extractHashtags(text) {
+    if (!text) return [];
+    const matches = text.match(/[#＃][^\s#＃、。,.!！?？()（）「」]+/g) || [];
+    return [...new Set(matches.map(t => t.replace(/^＃/, '#')))];
+  }
+
+  function formatDescWithHashtags(rawText) {
+    const escaped = escapeHtml(rawText || '');
+    return escaped.replace(/([#＃][^\s#＃、。,.!！?？()（）「」&]+)/g, (match) => {
+      const normalized = match.replace(/^＃/, '#');
+      return `<span class="inline-hashtag" onclick="filterByHashtag('${normalized}')">${match}</span>`;
+    });
+  }
+
+  function updateHashtagBar() {
+    const bar = document.getElementById('hashtagBar');
+    if (!bar) return;
+    const counts = {};
+    (sharedSpots || []).forEach(s => {
+      extractHashtags(`${s.title || ''} ${s.desc || ''}`).forEach(tag => {
+        counts[tag] = (counts[tag] || 0) + 1;
+      });
+    });
+
+    const usedTags = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const displayTags = usedTags.length > 0 ? usedTags : RECOMMENDED_HASHTAGS.slice(0, 6);
+
+    let html = `<span class="hashtag-bar-label">🏷️ タグ:</span>`;
+    if (activeHashtag) {
+      html += `<button type="button" class="hashtag-chip active" onclick="filterByHashtag('')">✕ ${escapeHtml(activeHashtag)} を解除</button>`;
+    }
+    displayTags.forEach(tag => {
+      const cnt = counts[tag] ? ` (${counts[tag]})` : '';
+      const isAct = activeHashtag === tag ? 'active' : '';
+      html += `<button type="button" class="hashtag-chip ${isAct}" onclick="filterByHashtag('${tag}')">${escapeHtml(tag)}${cnt}</button>`;
+    });
+    bar.innerHTML = html;
+  }
+
+  function filterByHashtag(tag) {
+    activeHashtag = (activeHashtag === tag) ? '' : tag;
+    map.closePopup();
+    updateHashtagBar();
+    renderMarkers(currentFilter);
+  }
+
+  // 既存の buildPopupHtml と renderMarkers をハッシュタグ対応に拡張
+  const _origBuildPopupHtml = buildPopupHtml;
+  buildPopupHtml = function(spot) {
+    const html = _origBuildPopupHtml(spot);
+    const plainDesc = escapeHtml(spot.desc || '');
+    const linkedDesc = formatDescWithHashtags(spot.desc || '');
+    return html.replace(`<p style="font-size:0.82rem; color:#444; line-height:1.4;">${plainDesc}</p>`,
+                        `<p style="font-size:0.82rem; color:#444; line-height:1.4;">${linkedDesc}</p>`);
+  };
+
+  const _origRenderMarkers = renderMarkers;
+  renderMarkers = function(filter = 'all') {
+    currentFilter = filter;
+    updateHashtagBar();
+    if (!activeHashtag) {
+      _origRenderMarkers(filter);
+      return;
+    }
+    const backup = sharedSpots;
+    sharedSpots = backup.filter(s => {
+      const tags = extractHashtags(`${s.title || ''} ${s.desc || ''}`);
+      return tags.includes(activeHashtag);
+    });
+    _origRenderMarkers(filter);
+    sharedSpots = backup;
+  };
 </script>
     <!-- チュートリアルモーダル -->
 <div id="tutorialModal" onclick="if(event.target===this) closeTutorial()">
