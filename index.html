@@ -27,7 +27,7 @@
     .map-layer-btn, .hazard-toggle-btn { border: 1px solid #455a64; background: #eceff1; color: #263238; padding: 6px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.2s; }
     .map-layer-btn.photo-active { background: #37474f; color: #fff; border-color: #263238; }
     .hazard-toggle-btn.active { background: #d84315; color: #fff; border-color: #bf360c; }
-    #hazardPanel { display: none; position: fixed; top: 108px; right: 12px; width: 295px; max-height: calc(100vh - 140px); overflow-y: auto; background: rgba(255, 255, 255, 0.97); border: 2px solid #d84315; border-radius: 10px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.24); z-index: 1003; font-size: 0.82rem; }
+    #hazardPanel { display: none; position: fixed; top: 108px; right: 12px; width: 305px; max-height: calc(100vh - 140px); overflow-y: auto; background: rgba(255, 255, 255, 0.97); border: 2px solid #d84315; border-radius: 10px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.24); z-index: 1003; font-size: 0.82rem; }
     .hazard-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; color: #bf360c; }
     .hazard-group-title { font-size: 0.72rem; font-weight: bold; color: #666; background: #f5f5f5; padding: 3px 6px; border-radius: 4px; margin: 6px 0 3px; }
     .hazard-option { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
@@ -172,15 +172,15 @@
   <div class="hazard-group-title">🕰️ 過去との比較（年代別航空写真）</div>
   <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="past1974" onchange="setHazardOverlay('past1974')" />
-    <span>🕰️ 1974〜78年（昭和50年頃の航空写真）</span>
+    <span>🕰️ 1974〜78年（昭和50年頃・カラー）</span>
   </label>
   <label class="hazard-option">
-    <input type="radio" name="hazardOverlay" value="past1979" onchange="setHazardOverlay('past1979')" />
-    <span>🕰️ 1979〜83年（昭和55年頃の航空写真）</span>
+    <input type="radio" name="hazardOverlay" value="past1961" onchange="setHazardOverlay('past1961')" />
+    <span>🕰️ 1961〜69年（昭和36〜44年・白黒）</span>
   </label>
   <label class="hazard-option">
-    <input type="radio" name="hazardOverlay" value="past1984" onchange="setHazardOverlay('past1984')" />
-    <span>🕰️ 1984〜86年（昭和60年頃の航空写真）</span>
+    <input type="radio" name="hazardOverlay" value="past1945" onchange="setHazardOverlay('past1945')" />
+    <span>🕰️ 1945〜50年（戦後直後・米軍撮影）</span>
   </label>
 
   <div class="hazard-group-title">🛡️ 防災・ハザード・地形</div>
@@ -369,26 +369,26 @@
 
   const hazardTileLayers = {
     past1974: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo1/{z}/{x}/{y}.jpg', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1974〜78年航空写真）</a>', opacity: 0.65, maxZoom: 17
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1974〜78年航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
-    past1979: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo2/{z}/{x}/{y}.jpg', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1979〜83年航空写真）</a>', opacity: 0.65, maxZoom: 17
+    past1961: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort_old10/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1961〜69年航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
-    past1984: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo3/{z}/{x}/{y}.jpg', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1984〜86年航空写真）</a>', opacity: 0.65, maxZoom: 17
+    past1945: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort_USA10/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1945〜50年航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
     rain: null,
     flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>', opacity: 0.65, maxZoom: 17
+      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
     landslide: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>', opacity: 0.65, maxZoom: 17
+      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
     hillshade: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', opacity: 0.65, maxZoom: 16
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', opacity: 0.65, maxNativeZoom: 16, maxZoom: 18
     }),
     relief: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', opacity: 0.65, maxZoom: 15
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', opacity: 0.65, maxNativeZoom: 15, maxZoom: 18
     })
   };
   let activeHazardKey = 'none';
@@ -536,7 +536,7 @@
         const latest = list[0];
         const url = `https://www.jma.go.jp/bosai/jmatile/data/nowc/${latest.basetime}/none/${latest.validtime}/surf/hrpns/{z}/{x}/{y}.png`;
         hazardTileLayers.rain = L.tileLayer(url, {
-          attribution: '&copy; <a href="https://www.jma.go.jp/">気象庁（降水ナウキャスト）</a>', opacity: hazardOpacity, maxZoom: 16
+          attribution: '&copy; <a href="https://www.jma.go.jp/">気象庁（降水ナウキャスト）</a>', opacity: hazardOpacity, maxNativeZoom: 16, maxZoom: 18
         });
         hazardTileLayers.rain.addTo(map);
         hazardTileLayers.rain.bringToFront();
@@ -560,8 +560,8 @@
     btn.classList.add('active');
     const labels = {
       past1974: '🕰️ 1974〜78年写真ON',
-      past1979: '🕰️ 1979〜83年写真ON',
-      past1984: '🕰️ 1984〜86年写真ON',
+      past1961: '🕰️ 1961〜69年写真ON',
+      past1945: '🕰️ 1945〜50年写真ON',
       flood: '🌊 洪水想定ON',
       landslide: '⛰️ 土砂警戒ON',
       hillshade: '🗻 陰影起伏ON',
