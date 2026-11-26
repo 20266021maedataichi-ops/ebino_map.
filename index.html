@@ -3,661 +3,124 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>えびの地域共創＆探究マップ（リアルタイム共有・ナビ・防災・天気対応版）</title>
+  <title>えびの地域共創＆探究マップ（過去航空写真・防災・天気・ナビ対応版）</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; }
     body { display: flex; flex-direction: column; height: 100vh; background: #f4f7f6; color: #333; }
-
-    header {
-      background: linear-gradient(135deg, #1b5e20, #2e7d32);
-      color: white;
-      padding: 10px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      z-index: 1000;
-      gap: 8px;
-    }
+    header { background: linear-gradient(135deg, #1b5e20, #2e7d32); color: white; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.2); z-index: 1000; gap: 8px; }
     header h1 { font-size: 1.02rem; font-weight: bold; }
     header span { font-size: 0.7rem; opacity: 0.9; display: block; }
     .header-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-    .sync-badge {
-      background: rgba(255,255,255,0.2);
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 0.72rem;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-    .area-select-btn, .admin-toggle-btn, .weather-header-btn {
-      background: rgba(0,0,0,0.25);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.4);
-      padding: 4px 9px;
-      border-radius: 12px;
-      font-size: 0.72rem;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: 0.15s;
-    }
-    .weather-header-btn {
-      background: rgba(2, 119, 189, 0.75);
-      border-color: rgba(255,255,255,0.65);
-      font-weight: bold;
-    }
-    .weather-header-btn.active {
-      background: #0288d1;
-      box-shadow: 0 0 0 2px #fff;
-    }
-    .admin-toggle-btn.active {
-      background: #ffb300;
-      color: #222;
-      font-weight: bold;
-      border-color: #ffb300;
-    }
-
-    .filter-bar {
-      display: flex;
-      gap: 6px;
-      padding: 8px 10px;
-      background: #fff;
-      overflow-x: auto;
-      border-bottom: 1px solid #ddd;
-      z-index: 999;
-      align-items: center;
-    }
-    .filter-btn {
-      border: 1px solid #ccc;
-      background: #f9f9f9;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.82rem;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: 0.2s;
-    }
-    .filter-btn.active {
-      background: #2e7d32;
-      color: white;
-      border-color: #2e7d32;
-      font-weight: bold;
-    }
-    .filter-btn.tankyu-btn.active {
-      background: #1565c0;
-      border-color: #1565c0;
-    }
-    .layer-controls-group {
-      margin-left: auto;
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-    .map-layer-btn, .hazard-toggle-btn {
-      border: 1px solid #455a64;
-      background: #eceff1;
-      color: #263238;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 0.82rem;
-      font-weight: bold;
-      cursor: pointer;
-      white-space: nowrap;
-      transition: 0.2s;
-    }
-    .map-layer-btn.photo-active {
-      background: #37474f;
-      color: #fff;
-      border-color: #263238;
-    }
-    .hazard-toggle-btn.active {
-      background: #d84315;
-      color: #fff;
-      border-color: #bf360c;
-    }
-
-    /* 防災・地形・雨雲オーバーレイ操作パネル */
-    #hazardPanel {
-      display: none;
-      position: fixed;
-      top: 108px;
-      right: 12px;
-      width: 280px;
-      background: rgba(255, 255, 255, 0.97);
-      border: 2px solid #d84315;
-      border-radius: 10px;
-      padding: 12px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.24);
-      z-index: 1003;
-      font-size: 0.82rem;
-    }
-    .hazard-panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      font-weight: bold;
-      color: #bf360c;
-    }
-    .hazard-option {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 4px;
-      border-bottom: 1px solid #f0f0f0;
-      cursor: pointer;
-    }
+    .sync-badge { background: rgba(255,255,255,0.2); padding: 4px 8px; border-radius: 12px; font-size: 0.72rem; white-space: nowrap; cursor: pointer; }
+    .area-select-btn, .admin-toggle-btn, .weather-header-btn { background: rgba(0,0,0,0.25); color: #fff; border: 1px solid rgba(255,255,255,0.4); padding: 4px 9px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; white-space: nowrap; transition: 0.15s; }
+    .weather-header-btn { background: rgba(2, 119, 189, 0.75); border-color: rgba(255,255,255,0.65); font-weight: bold; }
+    .weather-header-btn.active { background: #0288d1; box-shadow: 0 0 0 2px #fff; }
+    .admin-toggle-btn.active { background: #ffb300; color: #222; font-weight: bold; border-color: #ffb300; }
+    .filter-bar { display: flex; gap: 6px; padding: 8px 10px; background: #fff; overflow-x: auto; border-bottom: 1px solid #ddd; z-index: 999; align-items: center; }
+    .filter-btn { border: 1px solid #ccc; background: #f9f9f9; padding: 6px 12px; border-radius: 20px; font-size: 0.82rem; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+    .filter-btn.active { background: #2e7d32; color: white; border-color: #2e7d32; font-weight: bold; }
+    .filter-btn.tankyu-btn.active { background: #1565c0; border-color: #1565c0; }
+    .layer-controls-group { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+    .map-layer-btn, .hazard-toggle-btn { border: 1px solid #455a64; background: #eceff1; color: #263238; padding: 6px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+    .map-layer-btn.photo-active { background: #37474f; color: #fff; border-color: #263238; }
+    .hazard-toggle-btn.active { background: #d84315; color: #fff; border-color: #bf360c; }
+    #hazardPanel { display: none; position: fixed; top: 108px; right: 12px; width: 295px; max-height: calc(100vh - 140px); overflow-y: auto; background: rgba(255, 255, 255, 0.97); border: 2px solid #d84315; border-radius: 10px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.24); z-index: 1003; font-size: 0.82rem; }
+    .hazard-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; color: #bf360c; }
+    .hazard-group-title { font-size: 0.72rem; font-weight: bold; color: #666; background: #f5f5f5; padding: 3px 6px; border-radius: 4px; margin: 6px 0 3px; }
+    .hazard-option { display: flex; align-items: center; gap: 6px; padding: 5px 4px; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
     .hazard-option:last-of-type { border-bottom: none; }
-    .hazard-opacity-row {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px dashed #ccc;
-      font-size: 0.76rem;
-      color: #444;
-    }
-    .hazard-opacity-row input[type="range"] {
-      width: 100%;
-      margin-top: 4px;
-    }
-
-    /* ピンポイント天気予報パネル */
-    #weatherPanel {
-      display: none;
-      position: fixed;
-      top: 62px;
-      right: 12px;
-      width: 310px;
-      max-width: calc(100vw - 24px);
-      background: rgba(255, 255, 255, 0.98);
-      border: 2px solid #0288d1;
-      border-radius: 12px;
-      padding: 12px 14px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.26);
-      z-index: 1004;
-      font-size: 0.82rem;
-    }
-    .weather-panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid #e1f5fe;
-    }
-    .weather-panel-title {
-      font-weight: bold;
-      color: #01579b;
-      font-size: 0.9rem;
-    }
-    .weather-area-note {
-      font-size: 0.72rem;
-      color: #555;
-      margin-bottom: 8px;
-    }
-    .weather-current-box {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: linear-gradient(135deg, #e1f5fe, #f0f9ff);
-      border-radius: 8px;
-      padding: 8px 12px;
-      margin-bottom: 8px;
-    }
-    .weather-current-main {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .weather-big-icon {
-      font-size: 1.9rem;
-    }
-    .weather-temp-val {
-      font-size: 1.35rem;
-      font-weight: bold;
-      color: #01579b;
-    }
-    .weather-desc-text {
-      font-size: 0.76rem;
-      color: #333;
-      font-weight: bold;
-    }
-    .weather-sub-metrics {
-      text-align: right;
-      font-size: 0.72rem;
-      color: #444;
-      line-height: 1.45;
-    }
-    .weather-section-label {
-      font-size: 0.73rem;
-      font-weight: bold;
-      color: #0277bd;
-      margin: 6px 0 4px;
-    }
-    .weather-hourly-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 4px;
-      margin-bottom: 8px;
-    }
-    .weather-hour-card {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 6px;
-      padding: 5px 3px;
-      text-align: center;
-      font-size: 0.72rem;
-    }
-    .weather-daily-list {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .weather-day-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 4px 6px;
-      background: #f9fbfd;
-      border-radius: 5px;
-      font-size: 0.75rem;
-    }
+    .hazard-opacity-row { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; font-size: 0.76rem; color: #444; }
+    .hazard-opacity-row input[type="range"] { width: 100%; margin-top: 4px; }
+    #weatherPanel { display: none; position: fixed; top: 62px; right: 12px; width: 310px; max-width: calc(100vw - 24px); background: rgba(255, 255, 255, 0.98); border: 2px solid #0288d1; border-radius: 12px; padding: 12px 14px; box-shadow: 0 6px 20px rgba(0,0,0,0.26); z-index: 1004; font-size: 0.82rem; }
+    .weather-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #e1f5fe; }
+    .weather-panel-title { font-weight: bold; color: #01579b; font-size: 0.9rem; }
+    .weather-area-note { font-size: 0.72rem; color: #555; margin-bottom: 8px; }
+    .weather-current-box { display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #e1f5fe, #f0f9ff); border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; }
+    .weather-current-main { display: flex; align-items: center; gap: 8px; }
+    .weather-big-icon { font-size: 1.9rem; }
+    .weather-temp-val { font-size: 1.35rem; font-weight: bold; color: #01579b; }
+    .weather-desc-text { font-size: 0.76rem; color: #333; font-weight: bold; }
+    .weather-sub-metrics { text-align: right; font-size: 0.72rem; color: #444; line-height: 1.45; }
+    .weather-section-label { font-size: 0.73rem; font-weight: bold; color: #0277bd; margin: 6px 0 4px; }
+    .weather-hourly-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-bottom: 8px; }
+    .weather-hour-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 5px 3px; text-align: center; font-size: 0.72rem; }
+    .weather-daily-list { display: flex; flex-direction: column; gap: 3px; }
+    .weather-day-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 6px; background: #f9fbfd; border-radius: 5px; font-size: 0.75rem; }
     .weather-day-name { width: 68px; font-weight: bold; color: #333; }
     .weather-day-icon { width: 28px; text-align: center; font-size: 0.95rem; }
-    .weather-day-pop  { width: 46px; text-align: right; color: #0288d1; font-size: 0.72rem; }
+    .weather-day-pop { width: 46px; text-align: right; color: #0288d1; font-size: 0.72rem; }
     .weather-day-temp { width: 76px; text-align: right; font-weight: bold; }
     .temp-max { color: #d32f2f; }
     .temp-min { color: #1976d2; }
-
     #map { flex: 1; width: 100%; z-index: 1; }
-
-    /* ナビゲーション情報パネル */
-    #nav-panel {
-      display: none;
-      position: fixed;
-      bottom: 82px;
-      left: 10px;
-      right: 10px;
-      max-width: 480px;
-      margin: 0 auto;
-      background: rgba(255, 255, 255, 0.98);
-      border-left: 5px solid #0288d1;
-      border-radius: 10px;
-      padding: 12px 14px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.28);
-      z-index: 1002;
-      font-size: 0.85rem;
-    }
-    .nav-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 6px;
-    }
+    #nav-panel { display: none; position: fixed; bottom: 82px; left: 10px; right: 10px; max-width: 480px; margin: 0 auto; background: rgba(255, 255, 255, 0.98); border-left: 5px solid #0288d1; border-radius: 10px; padding: 12px 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.28); z-index: 1002; font-size: 0.85rem; }
+    .nav-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
     .nav-header h3 { color: #0277bd; font-size: 0.95rem; }
-    .nav-close-btn {
-      background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px;
-      font-weight: bold; cursor: pointer; color: #555;
-    }
-    .nav-stats {
-      display: flex;
-      gap: 12px;
-      background: #e1f5fe;
-      padding: 6px 10px;
-      border-radius: 6px;
-      margin: 6px 0 8px;
-      font-weight: bold;
-      color: #01579b;
-      font-size: 0.84rem;
-    }
-    .nav-external-btn {
-      display: block;
-      width: 100%;
-      text-align: center;
-      background: #0288d1;
-      color: white;
-      text-decoration: none;
-      padding: 8px;
-      border-radius: 6px;
-      font-weight: bold;
-      font-size: 0.85rem;
-    }
+    .nav-close-btn { background: #eee; border: none; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; cursor: pointer; color: #555; }
+    .nav-stats { display: flex; gap: 12px; background: #e1f5fe; padding: 6px 10px; border-radius: 6px; margin: 6px 0 8px; font-weight: bold; color: #01579b; font-size: 0.84rem; }
+    .nav-external-btn { display: block; width: 100%; text-align: center; background: #0288d1; color: white; text-decoration: none; padding: 8px; border-radius: 6px; font-weight: bold; font-size: 0.85rem; }
     .nav-external-btn:hover { background: #0277bd; }
-
-    .fab-btn {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #ef6c00;
-      color: white;
-      border: none;
-      border-radius: 30px;
-      padding: 14px 20px;
-      font-size: 0.95rem;
-      font-weight: bold;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      cursor: pointer;
-      z-index: 1001;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
+    .fab-btn { position: fixed; bottom: 20px; right: 20px; background: #ef6c00; color: white; border: none; border-radius: 30px; padding: 14px 20px; font-size: 0.95rem; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.3); cursor: pointer; z-index: 1001; display: flex; align-items: center; gap: 6px; }
     .fab-btn:hover { background: #e65100; }
-
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.55);
-      z-index: 2000;
-      justify-content: center;
-      align-items: center;
-      padding: 16px;
-    }
-    .modal {
-      background: white;
-      width: 100%;
-      max-width: 420px;
-      border-radius: 12px;
-      padding: 20px;
-      max-height: 90vh;
-      overflow-y: auto;
-    }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 2000; justify-content: center; align-items: center; padding: 16px; }
+    .modal { background: white; width: 100%; max-width: 420px; border-radius: 12px; padding: 20px; max-height: 90vh; overflow-y: auto; }
     .modal h2 { font-size: 1.1rem; margin-bottom: 12px; color: #2e7d32; }
     .form-group { margin-bottom: 12px; }
     .form-group label { display: block; font-size: 0.85rem; font-weight: bold; margin-bottom: 4px; }
-    .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem;
-    }
-    .gps-btn {
-      background: #0288d1; color: white; border: none; padding: 6px 10px;
-      border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-top: 4px;
-    }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.9rem; }
+    .gps-btn { background: #0288d1; color: white; border: none; padding: 6px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-top: 4px; }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
     .btn-cancel { background: #ccc; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
     .btn-submit { background: #2e7d32; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; }
     .btn-submit:disabled { background: #999; cursor: not-allowed; }
-
-    .location-choice-btn {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: #f1f8e9;
-      border: 2px solid #81c784;
-      border-radius: 10px;
-      padding: 10px 14px;
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: 0.15s;
-    }
-    .location-choice-btn:hover {
-      background: #dcedc8;
-      border-color: #2e7d32;
-    }
-    .location-choice-btn strong {
-      display: block;
-      font-size: 0.95rem;
-      color: #1b5e20;
-      margin-bottom: 2px;
-    }
-    .location-choice-btn span {
-      font-size: 0.76rem;
-      color: #555;
-    }
-
-    /* 登録ピン検索・座標移動ボックス */
-    .custom-location-box {
-      background: #e3f2fd;
-      border: 2px solid #64b5f6;
-      border-radius: 10px;
-      padding: 12px;
-      margin-top: 6px;
-    }
-    .custom-location-box strong {
-      display: block;
-      font-size: 0.95rem;
-      color: #0d47a1;
-      margin-bottom: 4px;
-    }
-    .custom-input-row {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-    }
-    .custom-input-row input {
-      flex: 1;
-      padding: 7px 9px;
-      border: 1px solid #90caf9;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      background: #fff;
-    }
-    .custom-go-btn {
-      background: #1565c0;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      padding: 7px 12px;
-      font-size: 0.82rem;
-      font-weight: bold;
-      cursor: pointer;
-      white-space: nowrap;
-    }
+    .location-choice-btn { display: block; width: 100%; text-align: left; background: #f1f8e9; border: 2px solid #81c784; border-radius: 10px; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; transition: 0.15s; }
+    .location-choice-btn:hover { background: #dcedc8; border-color: #2e7d32; }
+    .location-choice-btn strong { display: block; font-size: 0.95rem; color: #1b5e20; margin-bottom: 2px; }
+    .location-choice-btn span { font-size: 0.76rem; color: #555; }
+    .custom-location-box { background: #e3f2fd; border: 2px solid #64b5f6; border-radius: 10px; padding: 12px; margin-top: 6px; }
+    .custom-location-box strong { display: block; font-size: 0.95rem; color: #0d47a1; margin-bottom: 4px; }
+    .custom-input-row { display: flex; gap: 6px; margin-top: 6px; }
+    .custom-input-row input { flex: 1; padding: 7px 9px; border: 1px solid #90caf9; border-radius: 6px; font-size: 0.85rem; background: #fff; }
+    .custom-go-btn { background: #1565c0; color: white; border: none; border-radius: 6px; padding: 7px 12px; font-size: 0.82rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
     .custom-go-btn:hover { background: #0d47a1; }
-
-    /* 登録ピン検索結果リスト */
-    #pinSearchResults {
-      margin-top: 8px;
-      max-height: 170px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-    .pin-warp-item {
-      background: #fff;
-      border: 1px solid #90caf9;
-      border-radius: 6px;
-      padding: 7px 10px;
-      text-align: left;
-      cursor: pointer;
-      font-size: 0.8rem;
-      transition: 0.15s;
-    }
-    .pin-warp-item:hover {
-      background: #bbdefb;
-      border-color: #1565c0;
-    }
-    .pin-warp-title {
-      font-weight: bold;
-      color: #0d47a1;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-    }
-    .pin-warp-cat {
-      font-size: 0.68rem;
-      padding: 1px 5px;
-      border-radius: 4px;
-      color: #fff;
-      flex-shrink: 0;
-    }
-    .pin-warp-desc {
-      font-size: 0.72rem;
-      color: #555;
-      display: block;
-      margin-top: 2px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
+    #pinSearchResults { margin-top: 8px; max-height: 170px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+    .pin-warp-item { background: #fff; border: 1px solid #90caf9; border-radius: 6px; padding: 7px 10px; text-align: left; cursor: pointer; font-size: 0.8rem; transition: 0.15s; }
+    .pin-warp-item:hover { background: #bbdefb; border-color: #1565c0; }
+    .pin-warp-title { font-weight: bold; color: #0d47a1; display: flex; align-items: center; gap: 5px; }
+    .pin-warp-cat { font-size: 0.68rem; padding: 1px 5px; border-radius: 4px; color: #fff; flex-shrink: 0; }
+    .pin-warp-desc { font-size: 0.72rem; color: #555; display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .popup-img { width: 100%; max-height: 130px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-bottom: 4px; }
-
-    /* リアクションボタンバー */
-    .reaction-bar {
-      display: flex;
-      gap: 4px;
-      margin-top: 8px;
-      padding-top: 6px;
-      border-top: 1px solid #eee;
-      flex-wrap: wrap;
-    }
-    .reaction-btn {
-      flex: 1;
-      min-width: 46px;
-      background: #f5f5f5;
-      border: 1px solid #ddd;
-      border-radius: 14px;
-      padding: 4px 6px;
-      font-size: 0.78rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 3px;
-      transition: 0.15s;
-      color: #333;
-    }
-    .reaction-btn:hover {
-      background: #e8f5e9;
-      border-color: #81c784;
-    }
-    .reaction-btn.reacted {
-      background: #e8f5e9;
-      border-color: #2e7d32;
-      color: #1b5e20;
-      font-weight: bold;
-    }
-
-    /* ミニコメント・現地追記セクション */
-    .comments-section {
-      margin-top: 8px;
-      padding-top: 6px;
-      border-top: 1px solid #eee;
-    }
-    .comments-header {
-      font-size: 0.74rem;
-      font-weight: bold;
-      color: #555;
-      margin-bottom: 4px;
-    }
-    .comments-list {
-      max-height: 110px;
-      overflow-y: auto;
-      background: #f9fbf9;
-      border: 1px solid #e0e6e0;
-      border-radius: 6px;
-      padding: 5px 7px;
-      margin-bottom: 5px;
-      font-size: 0.74rem;
-    }
-    .comment-item {
-      padding: 4px 0;
-      border-bottom: 1px dashed #e0e0e0;
-      line-height: 1.35;
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 4px;
-    }
+    .reaction-bar { display: flex; gap: 4px; margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee; flex-wrap: wrap; }
+    .reaction-btn { flex: 1; min-width: 46px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 14px; padding: 4px 6px; font-size: 0.78rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 3px; transition: 0.15s; color: #333; }
+    .reaction-btn:hover { background: #e8f5e9; border-color: #81c784; }
+    .reaction-btn.reacted { background: #e8f5e9; border-color: #2e7d32; color: #1b5e20; font-weight: bold; }
+    .comments-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee; }
+    .comments-header { font-size: 0.74rem; font-weight: bold; color: #555; margin-bottom: 4px; }
+    .comments-list { max-height: 110px; overflow-y: auto; background: #f9fbf9; border: 1px solid #e0e6e0; border-radius: 6px; padding: 5px 7px; margin-bottom: 5px; font-size: 0.74rem; }
+    .comment-item { padding: 4px 0; border-bottom: 1px dashed #e0e0e0; line-height: 1.35; display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
     .comment-item:last-child { border-bottom: none; }
     .comment-body-wrap { flex: 1; word-break: break-word; }
-    .comment-meta {
-      font-weight: bold;
-      color: #2e7d32;
-      margin-right: 4px;
-    }
-    .comment-time {
-      font-size: 0.66rem;
-      color: #888;
-      margin-left: 4px;
-    }
-    .comment-admin-btns {
-      display: flex;
-      gap: 3px;
-      flex-shrink: 0;
-    }
-    .btn-c-edit, .btn-c-del {
-      border: none;
-      border-radius: 3px;
-      padding: 2px 5px;
-      font-size: 0.68rem;
-      cursor: pointer;
-      color: #fff;
-    }
+    .comment-meta { font-weight: bold; color: #2e7d32; margin-right: 4px; }
+    .comment-time { font-size: 0.66rem; color: #888; margin-left: 4px; }
+    .comment-admin-btns { display: flex; gap: 3px; flex-shrink: 0; }
+    .btn-c-edit, .btn-c-del { border: none; border-radius: 3px; padding: 2px 5px; font-size: 0.68rem; cursor: pointer; color: #fff; }
     .btn-c-edit { background: #1565c0; }
     .btn-c-del { background: #c62828; }
-
-    .comment-form {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .comment-form-row {
-      display: flex;
-      gap: 4px;
-    }
-    .comment-author-input {
-      width: 72px;
-      padding: 4px 6px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.74rem;
-    }
-    .comment-text-input {
-      flex: 1;
-      padding: 4px 6px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 0.74rem;
-    }
-    .comment-send-btn {
-      background: #2e7d32;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 4px 8px;
-      font-size: 0.74rem;
-      font-weight: bold;
-      cursor: pointer;
-      white-space: nowrap;
-    }
+    .comment-form { display: flex; flex-direction: column; gap: 4px; }
+    .comment-form-row { display: flex; gap: 4px; }
+    .comment-author-input { width: 72px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.74rem; }
+    .comment-text-input { flex: 1; padding: 4px 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.74rem; }
+    .comment-send-btn { background: #2e7d32; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 0.74rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
     .comment-send-btn:hover { background: #1b5e20; }
-
-    .btn-nav-sm {
-      display: block;
-      width: 100%;
-      margin-top: 8px;
-      background: #0288d1;
-      color: white;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 5px;
-      font-size: 0.82rem;
-      font-weight: bold;
-      cursor: pointer;
-    }
+    .btn-nav-sm { display: block; width: 100%; margin-top: 8px; background: #0288d1; color: white; border: none; padding: 6px 10px; border-radius: 5px; font-size: 0.82rem; font-weight: bold; cursor: pointer; }
     .btn-nav-sm:hover { background: #0277bd; }
-
-    .admin-popup-actions {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-      padding-top: 6px;
-      border-top: 1px dashed #ccc;
-    }
-    .btn-edit-sm {
-      flex: 1; background: #1565c0; color: white; border: none; padding: 5px 8px;
-      border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: bold;
-    }
-    .btn-del-sm {
-      flex: 1; background: #c62828; color: white; border: none; padding: 5px 8px;
-      border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: bold;
-    }
+    .admin-popup-actions { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
+    .btn-edit-sm { flex: 1; background: #1565c0; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: bold; }
+    .btn-del-sm { flex: 1; background: #c62828; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -675,16 +138,13 @@
   </div>
 </header>
 
-<!-- ピンポイント天気予報パネル -->
 <div id="weatherPanel">
   <div class="weather-panel-header">
     <span class="weather-panel-title">☀️ えびのピンポイント天気予報</span>
     <button class="nav-close-btn" onclick="toggleWeatherPanel()" title="閉じる">×</button>
   </div>
   <div id="weatherAreaNote" class="weather-area-note">対象エリア：加久藤エリア（えびの駅周辺）</div>
-  <div id="weatherContent">
-    <div style="text-align:center; padding:14px; color:#666;">気象データを取得しています...</div>
-  </div>
+  <div id="weatherContent"><div style="text-align:center; padding:14px; color:#666;">気象データを取得しています...</div></div>
 </div>
 
 <div class="filter-bar">
@@ -695,20 +155,35 @@
   <button class="filter-btn tankyu-btn" onclick="filterSpots('tankyu', this)">📊 地域探索レイヤー</button>
   <div class="layer-controls-group">
     <button class="map-layer-btn" id="mapLayerBtn" onclick="toggleBaseMap()">🛰️ 航空写真に切替</button>
-    <button class="hazard-toggle-btn" id="hazardBtn" onclick="toggleHazardPanel()">🛡️ 防災・地形</button>
+    <button class="hazard-toggle-btn" id="hazardBtn" onclick="toggleHazardPanel()">🛡️ 防災・地形・過去写真</button>
   </div>
 </div>
 
-<!-- 防災・地形・雨雲オーバーレイ切替パネル -->
 <div id="hazardPanel">
   <div class="hazard-panel-header">
-    <span>🛡️ 防災・地形・雨雲重ね合わせ</span>
+    <span>🛡️ 防災・地形・過去写真重ね合わせ</span>
     <button class="nav-close-btn" onclick="toggleHazardPanel()" title="閉じる">×</button>
   </div>
   <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="none" checked onchange="setHazardOverlay('none')" />
     <span>重ね合わせなし</span>
   </label>
+
+  <div class="hazard-group-title">🕰️ 過去との比較（年代別航空写真）</div>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="past1974" onchange="setHazardOverlay('past1974')" />
+    <span>🕰️ 1974〜78年（昭和50年頃の航空写真）</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="past1979" onchange="setHazardOverlay('past1979')" />
+    <span>🕰️ 1979〜83年（昭和55年頃の航空写真）</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="past1984" onchange="setHazardOverlay('past1984')" />
+    <span>🕰️ 1984〜86年（昭和60年頃の航空写真）</span>
+  </label>
+
+  <div class="hazard-group-title">🛡️ 防災・ハザード・地形</div>
   <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="rain" onchange="setHazardOverlay('rain')" />
     <span>☔ 雨雲レーダー（気象庁最新）</span>
@@ -730,14 +205,13 @@
     <span>🌈 色別標高図（高低差を色分け）</span>
   </label>
   <div class="hazard-opacity-row">
-    <div>透過度（濃さ）：<strong id="hazardOpacityVal">60%</strong></div>
-    <input type="range" id="hazardOpacitySlider" min="20" max="90" value="60" oninput="updateHazardOpacity(this.value)" />
+    <div>透過度（濃さ）：<strong id="hazardOpacityVal">65%</strong></div>
+    <input type="range" id="hazardOpacitySlider" min="20" max="100" value="65" oninput="updateHazardOpacity(this.value)" />
   </div>
 </div>
 
 <div id="map"></div>
 
-<!-- ナビゲーション案内パネル -->
 <div id="nav-panel">
   <div class="nav-header">
     <h3 id="navTargetTitle">🧭 目的地へのルート</h3>
@@ -753,7 +227,6 @@
 
 <button class="fab-btn" onclick="openModal()">＋ スポットを投稿</button>
 
-<!-- 初期表示・エリア切替・ピン検索ワープモーダル -->
 <div class="modal-overlay" id="locationModal" style="display: flex;">
   <div class="modal">
     <h2>📍 エリア切替・登録ピンへワープ</h2>
@@ -770,8 +243,6 @@
       <strong>③ 真幸エリア（京町・岡松周辺）</strong>
       <span>緯度: 32.0452472 / 経度: 130.7672972</span>
     </button>
-
-    <!-- 登録ピン検索・ワープ欄 -->
     <div class="custom-location-box">
       <strong>④ 登録済みのピンを検索してワープ</strong>
       <div style="font-size:0.75rem; color:#333;">マップに登録されているピンの名前・メモを入力すると一覧からワープできます。</div>
@@ -780,7 +251,6 @@
         <button type="button" class="custom-go-btn" onclick="filterRegisteredPins()">検索</button>
       </div>
       <div id="pinSearchResults"></div>
-
       <div style="border-top:1px dashed #90caf9; margin-top:10px; padding-top:8px;">
         <div style="font-size:0.75rem; color:#333;">⑤ 自分で座標・GoogleマップURLを指定して移動</div>
         <div class="custom-input-row">
@@ -792,7 +262,6 @@
   </div>
 </div>
 
-<!-- 新規投稿モーダル -->
 <div class="modal-overlay" id="postModal">
   <div class="modal">
     <h2>📍 新しい地域情報を投稿（全員に共有）</h2>
@@ -829,7 +298,6 @@
   </div>
 </div>
 
-<!-- 管理者用：投稿編集モーダル -->
 <div class="modal-overlay" id="editModal">
   <div class="modal">
     <h2 style="color:#1565c0;">✏️ 投稿内容を編集（管理者専用）</h2>
@@ -858,7 +326,6 @@
   </div>
 </div>
 
-<!-- 管理者用：コメント編集モーダル -->
 <div class="modal-overlay" id="editCommentModal">
   <div class="modal">
     <h2 style="color:#1565c0;">💬 コメントを編集（管理者専用）</h2>
@@ -892,48 +359,43 @@
 
   const map = L.map('map').setView([currentBaseLocation.lat, currentBaseLocation.lng], 15);
 
-  // 標準地図（デフォルメ地図）と航空写真レイヤーの定義
   const stdTileLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
-    maxZoom: 18
+    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', maxZoom: 18
   });
 
   const photoTileLayer = L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', {
-    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（全国最新写真）</a>',
-    maxZoom: 18
+    attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（全国最新写真）</a>', maxZoom: 18
   });
 
-  // 防災・地形オーバーレイレイヤー定義
   const hazardTileLayers = {
-    rain: null, // 気象庁雨雲レーダーは最新時刻を取得して動的生成
+    past1974: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo1/{z}/{x}/{y}.jpg', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1974〜78年航空写真）</a>', opacity: 0.65, maxZoom: 17
+    }),
+    past1979: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo2/{z}/{x}/{y}.jpg', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1979〜83年航空写真）</a>', opacity: 0.65, maxZoom: 17
+    }),
+    past1984: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo3/{z}/{x}/{y}.jpg', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1984〜86年航空写真）</a>', opacity: 0.65, maxZoom: 17
+    }),
+    rain: null,
     flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>',
-      opacity: 0.6,
-      maxZoom: 17
+      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>', opacity: 0.65, maxZoom: 17
     }),
     landslide: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>',
-      opacity: 0.6,
-      maxZoom: 17
+      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>', opacity: 0.65, maxZoom: 17
     }),
     hillshade: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
-      opacity: 0.6,
-      maxZoom: 16
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', opacity: 0.65, maxZoom: 16
     }),
     relief: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
-      opacity: 0.6,
-      maxZoom: 15
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>', opacity: 0.65, maxZoom: 15
     })
   };
   let activeHazardKey = 'none';
-  let hazardOpacity = 0.6;
-
+  let hazardOpacity = 0.65;
   let isPhotoMode = false;
   stdTileLayer.addTo(map);
 
-  // WMO天気コードから日本語と絵文字に変換
   function getWeatherMeta(code) {
     const c = Number(code);
     if (c === 0) return { icon: '☀️', text: '快晴' };
@@ -957,16 +419,13 @@
     const isOpen = (panel.style.display === 'block');
     panel.style.display = isOpen ? 'none' : 'block';
     btn.classList.toggle('active', !isOpen);
-    if (!isOpen) {
-      document.getElementById('hazardPanel').style.display = 'none';
-    }
+    if (!isOpen) document.getElementById('hazardPanel').style.display = 'none';
   }
 
   async function fetchEbinoWeather(lat, lng, areaLabel) {
     const btn = document.getElementById('weatherBtn');
     const noteEl = document.getElementById('weatherAreaNote');
     const contentEl = document.getElementById('weatherContent');
-
     noteEl.textContent = `対象エリア：${areaLabel}（緯度:${lat.toFixed(3)}, 経度:${lng.toFixed(3)}）`;
 
     try {
@@ -978,13 +437,11 @@
       const cur = data.current;
       const curMeta = getWeatherMeta(cur.weather_code);
       const curTemp = Math.round(cur.temperature_2m);
-      const curWind = (cur.wind_speed_10m / 3.6).toFixed(1); // km/h -> m/s換算
+      const curWind = (cur.wind_speed_10m / 3.6).toFixed(1);
       const curPrecip = Number(cur.precipitation || 0).toFixed(1);
-
       btn.textContent = `${curMeta.icon} ${curTemp}℃ 天気`;
 
-      // 現在時刻以降の3時間ごと予報（4枠＝12時間先まで）
-      const nowTimeStr = cur.time.slice(0, 13); // "YYYY-MM-DDTHH"
+      const nowTimeStr = cur.time.slice(0, 13);
       let startIdx = data.hourly.time.findIndex(t => t.slice(0, 13) >= nowTimeStr);
       if (startIdx < 0) startIdx = 0;
 
@@ -996,61 +453,34 @@
         const hMeta = getWeatherMeta(data.hourly.weather_code[idx]);
         const hTemp = Math.round(data.hourly.temperature_2m[idx]);
         const hPop = data.hourly.precipitation_probability[idx] ?? 0;
-        hourlyHtml += `
-          <div class="weather-hour-card">
-            <div style="color:#555;">${hTime}</div>
-            <div style="font-size:1.1rem; margin:2px 0;">${hMeta.icon}</div>
-            <div style="font-weight:bold;">${hTemp}℃</div>
-            <div style="color:#0288d1; font-size:0.68rem;">💧${hPop}%</div>
-          </div>
-        `;
+        hourlyHtml += `<div class="weather-hour-card"><div style="color:#555;">${hTime}</div><div style="font-size:1.1rem; margin:2px 0;">${hMeta.icon}</div><div style="font-weight:bold;">${hTemp}℃</div><div style="color:#0288d1; font-size:0.68rem;">💧${hPop}%</div></div>`;
       }
 
-      // 5日間の週間予報
       const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
       let dailyHtml = '';
       for (let d = 0; d < data.daily.time.length; d++) {
-        const dateStr = data.daily.time[d];
-        const dt = new Date(dateStr + 'T00:00:00+09:00');
+        const dt = new Date(data.daily.time[d] + 'T00:00:00+09:00');
         const label = d === 0 ? '今日' : (d === 1 ? '明日' : `${dt.getMonth() + 1}/${dt.getDate()}(${weekdays[dt.getDay()]})`);
         const dMeta = getWeatherMeta(data.daily.weather_code[d]);
         const maxT = Math.round(data.daily.temperature_2m_max[d]);
         const minT = Math.round(data.daily.temperature_2m_min[d]);
         const pop = data.daily.precipitation_probability_max[d] ?? 0;
-
-        dailyHtml += `
-          <div class="weather-day-row">
-            <span class="weather-day-name">${label}</span>
-            <span class="weather-day-icon" title="${dMeta.text}">${dMeta.icon}</span>
-            <span class="weather-day-pop">💧${pop}%</span>
-            <span class="weather-day-temp"><span class="temp-max">${maxT}℃</span> / <span class="temp-min">${minT}℃</span></span>
-          </div>
-        `;
+        dailyHtml += `<div class="weather-day-row"><span class="weather-day-name">${label}</span><span class="weather-day-icon" title="${dMeta.text}">${dMeta.icon}</span><span class="weather-day-pop">💧${pop}%</span><span class="weather-day-temp"><span class="temp-max">${maxT}℃</span> / <span class="temp-min">${minT}℃</span></span></div>`;
       }
 
       contentEl.innerHTML = `
         <div class="weather-current-box">
-          <div class="weather-current-main">
-            <span class="weather-big-icon">${curMeta.icon}</span>
-            <div>
-              <div class="weather-temp-val">${curTemp}℃</div>
-              <div class="weather-desc-text">${curMeta.text}</div>
-            </div>
-          </div>
-          <div class="weather-sub-metrics">
-            <div>降水量: ${curPrecip} mm/h</div>
-            <div>風速: ${curWind} m/s</div>
-          </div>
+          <div class="weather-current-main"><span class="weather-big-icon">${curMeta.icon}</span><div><div class="weather-temp-val">${curTemp}℃</div><div class="weather-desc-text">${curMeta.text}</div></div></div>
+          <div class="weather-sub-metrics"><div>降水量: ${curPrecip} mm/h</div><div>風速: ${curWind} m/s</div></div>
         </div>
         <div class="weather-section-label">🕒 これから12時間の予報</div>
         <div class="weather-hourly-row">${hourlyHtml}</div>
         <div class="weather-section-label">📅 5日間の予報</div>
-        <div class="weather-daily-list">${dailyHtml}</div>
-      `;
+        <div class="weather-daily-list">${dailyHtml}</div>`;
     } catch (e) {
       console.error(e);
       btn.textContent = '☀️ 天気予報';
-      contentEl.innerHTML = '<div style="color:#c62828; padding:10px; font-size:0.78rem;">気象データの取得に失敗しました。通信状況を確認してください。</div>';
+      contentEl.innerHTML = '<div style="color:#c62828; padding:10px; font-size:0.78rem;">気象データの取得に失敗しました。</div>';
     }
   }
 
@@ -1093,7 +523,7 @@
     const btn = document.getElementById('hazardBtn');
     if (key === 'none') {
       btn.classList.remove('active');
-      btn.textContent = '🛡️ 防災・地形';
+      btn.textContent = '🛡️ 防災・地形・過去写真';
       return;
     }
 
@@ -1106,9 +536,7 @@
         const latest = list[0];
         const url = `https://www.jma.go.jp/bosai/jmatile/data/nowc/${latest.basetime}/none/${latest.validtime}/surf/hrpns/{z}/{x}/{y}.png`;
         hazardTileLayers.rain = L.tileLayer(url, {
-          attribution: '&copy; <a href="https://www.jma.go.jp/">気象庁（降水ナウキャスト）</a>',
-          opacity: hazardOpacity,
-          maxZoom: 16
+          attribution: '&copy; <a href="https://www.jma.go.jp/">気象庁（降水ナウキャスト）</a>', opacity: hazardOpacity, maxZoom: 16
         });
         hazardTileLayers.rain.addTo(map);
         hazardTileLayers.rain.bringToFront();
@@ -1117,7 +545,7 @@
         console.error(e);
         alert('気象庁の雨雲レーダーデータの取得に失敗しました。');
         btn.classList.remove('active');
-        btn.textContent = '🛡️ 防災・地形';
+        btn.textContent = '🛡️ 防災・地形・過去写真';
         activeHazardKey = 'none';
       }
       return;
@@ -1131,12 +559,15 @@
     }
     btn.classList.add('active');
     const labels = {
+      past1974: '🕰️ 1974〜78年写真ON',
+      past1979: '🕰️ 1979〜83年写真ON',
+      past1984: '🕰️ 1984〜86年写真ON',
       flood: '🌊 洪水想定ON',
       landslide: '⛰️ 土砂警戒ON',
       hillshade: '🗻 陰影起伏ON',
       relief: '🌈 標高図ON'
     };
-    btn.textContent = labels[key] || '🛡️ 防災・地形ON';
+    btn.textContent = labels[key] || '🛡️ オーバーレイON';
   }
 
   function updateHazardOpacity(val) {
@@ -1157,26 +588,22 @@
 
   function selectInitialLocation(index) {
     const loc = presetLocations[index];
-    if (!loc) return;
-    moveToLocation(loc.name, loc.lat, loc.lng, 15);
+    if (loc) moveToLocation(loc.name, loc.lat, loc.lng, 15);
   }
 
-  // 登録済みピンの検索結果を表示
   function filterRegisteredPins() {
     const listEl = document.getElementById('pinSearchResults');
     const keyword = (document.getElementById('pinSearchInput').value || '').trim().toLowerCase();
     listEl.innerHTML = '';
 
     if (!sharedSpots || sharedSpots.length === 0) {
-      listEl.innerHTML = '<div style="font-size:0.76rem; color:#666; padding:4px;">登録されているピンがまだありません（読み込み中の場合は数秒お待ちください）。</div>';
+      listEl.innerHTML = '<div style="font-size:0.76rem; color:#666; padding:4px;">登録されているピンがまだありません。</div>';
       return;
     }
 
     const matched = sharedSpots.filter(spot => {
       if (!keyword) return true;
-      const t = (spot.title || '').toLowerCase();
-      const d = (spot.desc || '').toLowerCase();
-      return t.includes(keyword) || d.includes(keyword);
+      return (spot.title || '').toLowerCase().includes(keyword) || (spot.desc || '').toLowerCase().includes(keyword);
     });
 
     if (matched.length === 0) {
@@ -1189,68 +616,36 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'pin-warp-item';
-      btn.innerHTML = `
-        <span class="pin-warp-title">
-          <span class="pin-warp-cat" style="background:${meta.color};">${meta.label}</span>
-          <span>${escapeHtml(spot.title)}</span>
-        </span>
-        <span class="pin-warp-desc">${escapeHtml(spot.desc || '詳細メモなし')}</span>
-      `;
+      btn.innerHTML = `<span class="pin-warp-title"><span class="pin-warp-cat" style="background:${meta.color};">${meta.label}</span><span>${escapeHtml(spot.title)}</span></span><span class="pin-warp-desc">${escapeHtml(spot.desc || '詳細メモなし')}</span>`;
       btn.onclick = () => warpToPin(spot.id);
       listEl.appendChild(btn);
     });
   }
 
-  // 指定した登録ピンへワープして吹き出しを開く
   function warpToPin(spotId) {
     const target = sharedSpots.find(s => s.id === spotId);
     if (!target) return;
-
     if (currentFilter !== 'all' && currentFilter !== target.category) {
-      const allBtn = document.getElementById('filterAllBtn');
-      filterSpots('all', allBtn);
+      filterSpots('all', document.getElementById('filterAllBtn'));
     }
-
     moveToLocation(target.title, target.lat, target.lng, 17);
-
-    setTimeout(() => {
-      const marker = markerMap[spotId];
-      if (marker) {
-        marker.openPopup();
-      }
-    }, 200);
+    setTimeout(() => { if (markerMap[spotId]) markerMap[spotId].openPopup(); }, 200);
   }
 
   function applyCustomLatLng() {
     const raw = document.getElementById('customLatLngInput').value.trim();
-    if (!raw) {
-      alert('座標（例：32.04246, 130.81553）またはGoogleマップのURLを貼り付けてください。');
-      return;
-    }
-
-    let lat = NaN;
-    let lng = NaN;
-
+    if (!raw) return alert('座標（例：32.04246, 130.81553）またはGoogleマップのURLを貼り付けてください。');
+    let lat = NaN, lng = NaN;
     const atMatch = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     const dMatch = raw.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
-
-    if (dMatch) {
-      lat = parseFloat(dMatch[1]);
-      lng = parseFloat(dMatch[2]);
-    } else if (atMatch) {
-      lat = parseFloat(atMatch[1]);
-      lng = parseFloat(atMatch[2]);
-    } else {
+    if (dMatch) { lat = parseFloat(dMatch[1]); lng = parseFloat(dMatch[2]); }
+    else if (atMatch) { lat = parseFloat(atMatch[1]); lng = parseFloat(atMatch[2]); }
+    else {
       const parts = raw.split(/[,、\s]+/);
-      if (parts.length >= 2) {
-        lat = parseFloat(parts[0]);
-        lng = parseFloat(parts[1]);
-      }
+      if (parts.length >= 2) { lat = parseFloat(parts[0]); lng = parseFloat(parts[1]); }
     }
-
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      alert('座標を読み取れませんでした。\n「32.04246, 130.81553」の形か、ブラウザのGoogleマップURLをそのまま貼り付けてください。');
-      return;
+      return alert('座標を読み取れませんでした。「32.04246, 130.81553」の形かGoogleマップURLを貼り付けてください。');
     }
     moveToLocation(`⑤ 指定地点 (${lat.toFixed(4)}, ${lng.toFixed(4)})`, lat, lng, 16);
   }
@@ -1260,52 +655,37 @@
     filterRegisteredPins();
   }
 
-  let sharedSpots = [];
-  let markerMap = {};
-  let currentFilter = 'all';
+  let sharedSpots = [], markerMap = {}, currentFilter = 'all';
   let markersLayer = L.layerGroup().addTo(map);
   let navLayer = L.layerGroup().addTo(map);
-  let supabaseClient = null;
-  let adminPassword = '';
+  let supabaseClient = null, adminPassword = '';
 
   const catMeta = {
-    danger:  { label: '⚠️ 危険箇所', color: '#d32f2f' },
-    local:   { label: '🏪 ローカル・穴場', color: '#2e7d32' },
+    danger: { label: '⚠️ 危険箇所', color: '#d32f2f' },
+    local: { label: '🏪 ローカル・穴場', color: '#2e7d32' },
     fishing: { label: '🎣 釣り場', color: '#0288d1' },
-    tankyu:  { label: '📊 地域探索レイヤー', color: '#1565c0' }
+    tankyu: { label: '📊 地域探索レイヤー', color: '#1565c0' }
   };
 
-  // リアクション定義と端末ごとの押下履歴管理（localStorage）
   const reactionTypes = [
-    { key: 'like',  emoji: '👍', title: 'いいね！' },
+    { key: 'like', emoji: '👍', title: 'いいね！' },
     { key: 'check', emoji: '⚠️', title: '確認した！' },
-    { key: 'idea',  emoji: '💡', title: '役立つ！' },
+    { key: 'idea', emoji: '💡', title: '役立つ！' },
     { key: 'heart', emoji: '❤️', title: '応援！' }
   ];
   const USER_REACTIONS_KEY = 'ebino_map_user_reactions_v1';
   const USER_NAME_KEY = 'ebino_map_comment_author_v1';
-  let userReactions = {};
-  let savedAuthorName = '';
+  let userReactions = {}, savedAuthorName = '';
   try {
     userReactions = JSON.parse(localStorage.getItem(USER_REACTIONS_KEY) || '{}');
     savedAuthorName = localStorage.getItem(USER_NAME_KEY) || '';
-  } catch (e) {
-    userReactions = {};
-  }
+  } catch (e) {}
 
-  function hasReacted(spotId, key) {
-    return Boolean(userReactions[`${spotId}_${key}`]);
-  }
-
+  function hasReacted(spotId, key) { return Boolean(userReactions[`${spotId}_${key}`]); }
   function setReacted(spotId, key, val) {
-    if (val) {
-      userReactions[`${spotId}_${key}`] = true;
-    } else {
-      delete userReactions[`${spotId}_${key}`];
-    }
-    try {
-      localStorage.setItem(USER_REACTIONS_KEY, JSON.stringify(userReactions));
-    } catch (e) {}
+    if (val) userReactions[`${spotId}_${key}`] = true;
+    else delete userReactions[`${spotId}_${key}`];
+    try { localStorage.setItem(USER_REACTIONS_KEY, JSON.stringify(userReactions)); } catch (e) {}
   }
 
   function buildPopupHtml(spot) {
@@ -1323,31 +703,12 @@
     const commentsListHtml = comments.length > 0
       ? comments.map(c => {
           const cId = Number(c.id);
-          const commentAdminHtml = (adminPassword && !isNaN(cId)) ? `
-            <span class="comment-admin-btns">
-              <button type="button" class="btn-c-edit" title="コメントを編集" onclick="openEditCommentModal(${spot.id}, ${cId})">✏️</button>
-              <button type="button" class="btn-c-del" title="コメントを削除" onclick="deleteSpotComment(${spot.id}, ${cId})">🗑️</button>
-            </span>
-          ` : '';
-          return `
-            <div class="comment-item">
-              <div class="comment-body-wrap">
-                <span class="comment-meta">${escapeHtml(c.author || '匿名')}:</span>
-                <span>${escapeHtml(c.text)}</span>
-                <span class="comment-time">${escapeHtml(c.created_at || '')}</span>
-              </div>
-              ${commentAdminHtml}
-            </div>
-          `;
+          const commentAdminHtml = (adminPassword && !isNaN(cId)) ? `<span class="comment-admin-btns"><button type="button" class="btn-c-edit" title="編集" onclick="openEditCommentModal(${spot.id}, ${cId})">✏️</button><button type="button" class="btn-c-del" title="削除" onclick="deleteSpotComment(${spot.id}, ${cId})">🗑️</button></span>` : '';
+          return `<div class="comment-item"><div class="comment-body-wrap"><span class="comment-meta">${escapeHtml(c.author || '匿名')}:</span><span>${escapeHtml(c.text)}</span><span class="comment-time">${escapeHtml(c.created_at || '')}</span></div>${commentAdminHtml}</div>`;
         }).join('')
       : '<div style="color:#888; font-size:0.72rem;">まだ現地追記はありません。</div>';
 
-    const adminControls = adminPassword ? `
-      <div class="admin-popup-actions">
-        <button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ ピン編集</button>
-        <button class="btn-del-sm" onclick="deleteSpot(${spot.id})">🗑️ ピン削除</button>
-      </div>
-    ` : '';
+    const adminControls = adminPassword ? `<div class="admin-popup-actions"><button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ ピン編集</button><button class="btn-del-sm" onclick="deleteSpot(${spot.id})">🗑️ ピン削除</button></div>` : '';
 
     return `
       <div style="min-width:240px; max-width:275px;">
@@ -1356,7 +717,6 @@
         <p style="font-size:0.82rem; color:#444; line-height:1.4;">${escapeHtml(spot.desc)}</p>
         ${imgHtml}
         <div class="reaction-bar">${reactionButtonsHtml}</div>
-
         <div class="comments-section">
           <div class="comments-header">💬 現地追記・ミニコメント (${comments.length}件)</div>
           <div class="comments-list">${commentsListHtml}</div>
@@ -1368,11 +728,9 @@
             </div>
           </div>
         </div>
-
         <button class="btn-nav-sm" onclick="startNavigationById(${spot.id})">🧭 ここへナビ</button>
         ${adminControls}
-      </div>
-    `;
+      </div>`;
   }
 
   async function submitSpotComment(spotId) {
@@ -1381,204 +739,101 @@
     const textInput = document.getElementById(`cText_${spotId}`);
     const sendBtn = document.getElementById(`cBtn_${spotId}`);
     if (!textInput) return;
-
     const author = (authorInput ? authorInput.value : '').trim();
     const text = textInput.value.trim();
-    if (!text) {
-      alert('追記するコメントを入力してください。');
-      return;
-    }
-
-    if (author) {
-      savedAuthorName = author;
-      try { localStorage.setItem(USER_NAME_KEY, author); } catch (e) {}
-    }
-
-    if (sendBtn) {
-      sendBtn.disabled = true;
-      sendBtn.textContent = '...';
-    }
-
+    if (!text) return alert('追記するコメントを入力してください。');
+    if (author) { savedAuthorName = author; try { localStorage.setItem(USER_NAME_KEY, author); } catch (e) {} }
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '...'; }
     try {
-      const { data, error } = await supabaseClient.rpc('add_spot_comment', {
-        target_id: spotId,
-        author_name: author || '匿名',
-        comment_body: text
-      });
+      const { data, error } = await supabaseClient.rpc('add_spot_comment', { target_id: spotId, author_name: author || '匿名', comment_body: text });
       if (error) throw error;
-
       const target = sharedSpots.find(s => s.id === spotId);
-      if (target && data) {
-        target.comments = data;
-        if (markerMap[spotId]) {
-          markerMap[spotId].setPopupContent(buildPopupHtml(target));
-        }
-      }
-    } catch (err) {
-      console.error(err);
-      alert('コメントの送信に失敗しました（SupabaseのSQL設定が未実行の可能性があります）：' + (err.message || ''));
-    } finally {
-      if (sendBtn) {
-        sendBtn.disabled = false;
-        sendBtn.textContent = '追記';
-      }
-    }
+      if (target && data) { target.comments = data; if (markerMap[spotId]) markerMap[spotId].setPopupContent(buildPopupHtml(target)); }
+    } catch (err) { alert('コメントの送信に失敗しました：' + (err.message || '')); }
+    finally { if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '追記'; } }
   }
 
-  // 管理者用：コメント編集モーダルを開く
   function openEditCommentModal(spotId, commentId) {
     const target = sharedSpots.find(s => s.id === spotId);
     if (!target || !Array.isArray(target.comments)) return;
     const comment = target.comments.find(c => Number(c.id) === Number(commentId));
     if (!comment) return;
-
     document.getElementById('editCommentSpotId').value = spotId;
     document.getElementById('editCommentId').value = commentId;
     document.getElementById('editCommentAuthor').value = comment.author || '匿名';
     document.getElementById('editCommentText').value = comment.text || '';
     document.getElementById('editCommentModal').style.display = 'flex';
   }
+  function closeEditCommentModal() { document.getElementById('editCommentModal').style.display = 'none'; }
 
-  function closeEditCommentModal() {
-    document.getElementById('editCommentModal').style.display = 'none';
-  }
-
-  // 管理者用：コメント更新を実行
   async function saveEditedComment() {
     const spotId = Number(document.getElementById('editCommentSpotId').value);
     const commentId = Number(document.getElementById('editCommentId').value);
     const author = document.getElementById('editCommentAuthor').value.trim();
     const text = document.getElementById('editCommentText').value.trim();
     const btn = document.getElementById('updateCommentBtn');
-
-    if (!text) {
-      alert('コメント内容を入力してください。');
-      return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = '更新中...';
-
+    if (!text) return alert('コメント内容を入力してください。');
+    btn.disabled = true; btn.textContent = '更新中...';
     try {
       const { data, error } = await supabaseClient.rpc('admin_update_spot_comment', {
-        admin_pass: adminPassword,
-        target_spot_id: spotId,
-        target_comment_id: commentId,
-        new_author: author || '匿名',
-        new_text: text
+        admin_pass: adminPassword, target_spot_id: spotId, target_comment_id: commentId, new_author: author || '匿名', new_text: text
       });
       if (error) throw error;
-
       const target = sharedSpots.find(s => s.id === spotId);
-      if (target && data) {
-        target.comments = data;
-        if (markerMap[spotId]) {
-          markerMap[spotId].setPopupContent(buildPopupHtml(target));
-        }
-      }
-      closeEditCommentModal();
-      alert('コメントを更新しました。');
-    } catch (err) {
-      console.error(err);
-      alert('コメントの更新に失敗しました（パスワードが違うか、SQL関数が未設定です）：' + (err.message || ''));
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'コメントを更新';
-    }
+      if (target && data) { target.comments = data; if (markerMap[spotId]) markerMap[spotId].setPopupContent(buildPopupHtml(target)); }
+      closeEditCommentModal(); alert('コメントを更新しました。');
+    } catch (err) { alert('コメントの更新に失敗しました：' + (err.message || '')); }
+    finally { btn.disabled = false; btn.textContent = 'コメントを更新'; }
   }
 
-  // 管理者用：コメント削除を実行
   async function deleteSpotComment(spotId, commentId) {
     if (!confirm('このコメントを削除しますか？')) return;
-
     try {
       const { data, error } = await supabaseClient.rpc('admin_delete_spot_comment', {
-        admin_pass: adminPassword,
-        target_spot_id: spotId,
-        target_comment_id: commentId
+        admin_pass: adminPassword, target_spot_id: spotId, target_comment_id: commentId
       });
       if (error) throw error;
-
       const target = sharedSpots.find(s => s.id === spotId);
-      if (target && data) {
-        target.comments = data;
-        if (markerMap[spotId]) {
-          markerMap[spotId].setPopupContent(buildPopupHtml(target));
-        }
-      }
+      if (target && data) { target.comments = data; if (markerMap[spotId]) markerMap[spotId].setPopupContent(buildPopupHtml(target)); }
       alert('コメントを削除しました。');
-    } catch (err) {
-      console.error(err);
-      alert('コメントの削除に失敗しました（パスワードが違うか、SQL関数が未設定です）：' + (err.message || ''));
-    }
+    } catch (err) { alert('コメントの削除に失敗しました：' + (err.message || '')); }
   }
 
   async function toggleReaction(spotId, key) {
     if (!supabaseClient) return;
     const target = sharedSpots.find(s => s.id === spotId);
     if (!target) return;
-
     const already = hasReacted(spotId, key);
     const delta = already ? -1 : 1;
-
-    if (!target.reactions) {
-      target.reactions = { like: 0, check: 0, idea: 0, heart: 0 };
-    }
+    if (!target.reactions) target.reactions = { like: 0, check: 0, idea: 0, heart: 0 };
     target.reactions[key] = Math.max(0, Number(target.reactions[key] || 0) + delta);
     setReacted(spotId, key, !already);
-
-    if (markerMap[spotId]) {
-      markerMap[spotId].setPopupContent(buildPopupHtml(target));
-    }
-
+    if (markerMap[spotId]) markerMap[spotId].setPopupContent(buildPopupHtml(target));
     try {
-      const { data, error } = await supabaseClient.rpc('toggle_spot_reaction', {
-        target_id: spotId,
-        reaction_key: key,
-        delta: delta
-      });
+      const { data, error } = await supabaseClient.rpc('toggle_spot_reaction', { target_id: spotId, reaction_key: key, delta: delta });
       if (error) throw error;
-      if (data) {
-        target.reactions = data;
-        if (markerMap[spotId]) {
-          markerMap[spotId].setPopupContent(buildPopupHtml(target));
-        }
-      }
+      if (data) { target.reactions = data; if (markerMap[spotId]) markerMap[spotId].setPopupContent(buildPopupHtml(target)); }
     } catch (err) {
-      console.error(err);
       target.reactions[key] = Math.max(0, Number(target.reactions[key] || 0) - delta);
       setReacted(spotId, key, already);
-      if (markerMap[spotId]) {
-        markerMap[spotId].setPopupContent(buildPopupHtml(target));
-      }
-      alert('リアクションの送信に失敗しました（SupabaseのSQL設定が未実行の可能性があります）：' + (err.message || ''));
+      if (markerMap[spotId]) markerMap[spotId].setPopupContent(buildPopupHtml(target));
+      alert('リアクションの送信に失敗しました：' + (err.message || ''));
     }
   }
 
   if (SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    supabaseClient
-      .channel('public:spots')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'spots' }, () => {
-        loadSpots();
-      })
-      .subscribe();
+    supabaseClient.channel('public:spots').on('postgres_changes', { event: '*', schema: 'public', table: 'spots' }, () => loadSpots()).subscribe();
   }
 
-  // ID指定で安全にナビを開始するラッパー関数
   function startNavigationById(spotId) {
     const target = sharedSpots.find(s => s.id === spotId);
-    if (!target) {
-      alert('目的地データの取得に失敗しました。再読み込みしてもう一度お試しください。');
-      return;
-    }
+    if (!target) return alert('目的地データの取得に失敗しました。');
     startNavigation(Number(target.lat), Number(target.lng), target.title);
   }
 
-  // ナビゲーション開始処理（タイムアウト＆フォールバック強化版）
   function startNavigation(destLat, destLng, title) {
     map.closePopup();
-
     const navPanel = document.getElementById('nav-panel');
     document.getElementById('navTargetTitle').textContent = `🧭 ${title}`;
     document.getElementById('navOriginNote').textContent = '出発地：現在地を確認中...';
@@ -1589,113 +844,63 @@
 
     const drawStraightFallback = (origLat, origLng) => {
       navLayer.clearLayers();
-      L.circleMarker([origLat, origLng], {
-        radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1
-      }).addTo(navLayer);
-
-      const line = L.polyline([[origLat, origLng], [destLat, destLng]], {
-        color: '#0288d1', weight: 4, dashArray: '8, 8'
-      }).addTo(navLayer);
+      L.circleMarker([origLat, origLng], { radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1 }).addTo(navLayer);
+      const line = L.polyline([[origLat, origLng], [destLat, destLng]], { color: '#0288d1', weight: 4, dashArray: '8, 8' }).addTo(navLayer);
       map.fitBounds(line.getBounds(), { padding: [50, 130] });
-
       const distM = map.distance([origLat, origLng], [destLat, destLng]);
-      const distKm = (distM / 1000).toFixed(1);
-      const walkMin = Math.max(1, Math.round((distM / 1000) / 4 * 60));
-      document.getElementById('navDistance').textContent = `直線距離: 約 ${distKm} km`;
-      document.getElementById('navDuration').textContent = `徒歩目安 約${walkMin}分（詳細はGoogleマップへ）`;
+      document.getElementById('navDistance').textContent = `直線距離: 約 ${(distM / 1000).toFixed(1)} km`;
+      document.getElementById('navDuration').textContent = `徒歩目安 約${Math.max(1, Math.round((distM / 1000) / 4 * 60))}分`;
     };
 
     const drawRoute = async (origLat, origLng, originLabel) => {
       navLayer.clearLayers();
       document.getElementById('navOriginNote').textContent = `出発地：${originLabel}`;
       document.getElementById('googleMapsLink').href = `https://www.google.com/maps/dir/?api=1&origin=${origLat},${origLng}&destination=${destLat},${destLng}`;
-
-      L.circleMarker([origLat, origLng], {
-        radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1
-      }).bindPopup(`🚩 出発地（${originLabel}）`).addTo(navLayer);
-
+      L.circleMarker([origLat, origLng], { radius: 8, color: '#fff', weight: 3, fillColor: '#0288d1', fillOpacity: 1 }).bindPopup(`🚩 出発地（${originLabel}）`).addTo(navLayer);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 4000);
-
       try {
-        const url = `https://router.project-osrm.org/route/v1/driving/${origLng},${origLat};${destLng},${destLat}?overview=full&geometries=geojson`;
-        const res = await fetch(url, { signal: controller.signal });
+        const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${origLng},${origLat};${destLng},${destLat}?overview=full&geometries=geojson`, { signal: controller.signal });
         clearTimeout(timeoutId);
         const json = await res.json();
-
         if (json.routes && json.routes.length > 0) {
           const route = json.routes[0];
-          const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
-          const poly = L.polyline(coords, { color: '#0288d1', weight: 6, opacity: 0.85 }).addTo(navLayer);
+          const poly = L.polyline(route.geometry.coordinates.map(c => [c[1], c[0]]), { color: '#0288d1', weight: 6, opacity: 0.85 }).addTo(navLayer);
           map.fitBounds(poly.getBounds(), { padding: [50, 130] });
-
-          const distKm = (route.distance / 1000).toFixed(1);
-          const carMin = Math.max(1, Math.round(route.duration / 60));
-          const walkMin = Math.max(1, Math.round((route.distance / 1000) / 4 * 60));
-
-          document.getElementById('navDistance').textContent = `道路距離: 約 ${distKm} km`;
-          document.getElementById('navDuration').textContent = `車 約${carMin}分 / 徒歩 約${walkMin}分`;
-        } else {
-          drawStraightFallback(origLat, origLng);
-        }
-      } catch (e) {
-        clearTimeout(timeoutId);
-        drawStraightFallback(origLat, origLng);
-      }
+          document.getElementById('navDistance').textContent = `道路距離: 約 ${(route.distance / 1000).toFixed(1)} km`;
+          document.getElementById('navDuration').textContent = `車 約${Math.max(1, Math.round(route.duration / 60))}分 / 徒歩 約${Math.max(1, Math.round((route.distance / 1000) / 4 * 60))}分`;
+        } else drawStraightFallback(origLat, origLng);
+      } catch (e) { clearTimeout(timeoutId); drawStraightFallback(origLat, origLng); }
     };
 
     let gpsResolved = false;
     const fallbackTimer = setTimeout(() => {
-      if (!gpsResolved) {
-        gpsResolved = true;
-        drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
-      }
+      if (!gpsResolved) { gpsResolved = true; drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`); }
     }, 3500);
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          if (gpsResolved) return;
-          gpsResolved = true;
-          clearTimeout(fallbackTimer);
-          drawRoute(pos.coords.latitude, pos.coords.longitude, '現在のGPS位置');
-        },
-        () => {
-          if (gpsResolved) return;
-          gpsResolved = true;
-          clearTimeout(fallbackTimer);
-          drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
-        },
+        (pos) => { if (!gpsResolved) { gpsResolved = true; clearTimeout(fallbackTimer); drawRoute(pos.coords.latitude, pos.coords.longitude, '現在のGPS位置'); } },
+        () => { if (!gpsResolved) { gpsResolved = true; clearTimeout(fallbackTimer); drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`); } },
         { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
       );
     } else {
-      gpsResolved = true;
-      clearTimeout(fallbackTimer);
-      drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
+      gpsResolved = true; clearTimeout(fallbackTimer); drawRoute(currentBaseLocation.lat, currentBaseLocation.lng, `${currentBaseLocation.name}（基準点）`);
     }
   }
 
-  function clearNavigation() {
-    navLayer.clearLayers();
-    document.getElementById('nav-panel').style.display = 'none';
-  }
+  function clearNavigation() { navLayer.clearLayers(); document.getElementById('nav-panel').style.display = 'none'; }
 
   function toggleAdminMode() {
     const btn = document.getElementById('adminBtn');
     if (adminPassword) {
-      adminPassword = '';
-      btn.classList.remove('active');
-      btn.textContent = '🔑 管理者';
-      renderMarkers(currentFilter);
-      alert('管理者モードを終了しました。');
+      adminPassword = ''; btn.classList.remove('active'); btn.textContent = '🔑 管理者';
+      renderMarkers(currentFilter); alert('管理者モードを終了しました。');
     } else {
       const pass = prompt('管理者パスワードを入力してください：');
       if (pass && pass.trim() !== '') {
-        adminPassword = pass.trim();
-        btn.classList.add('active');
-        btn.textContent = '👑 管理者ON';
-        renderMarkers(currentFilter);
-        alert('管理者モードになりました。ピンやコメントの「編集」「削除」ができます。');
+        adminPassword = pass.trim(); btn.classList.add('active'); btn.textContent = '👑 管理者ON';
+        renderMarkers(currentFilter); alert('管理者モードになりました。');
       }
     }
   }
@@ -1706,33 +911,17 @@
       renderMarkers(currentFilter);
       return;
     }
-
     let openedSpotId = null;
-    Object.keys(markerMap).forEach(id => {
-      if (markerMap[id] && markerMap[id].isPopupOpen()) {
-        openedSpotId = Number(id);
-      }
-    });
-
-    const { data, error } = await supabaseClient
-      .from('spots')
-      .select('*')
-      .order('created_at', { ascending: false });
-
+    Object.keys(markerMap).forEach(id => { if (markerMap[id] && markerMap[id].isPopupOpen()) openedSpotId = Number(id); });
+    const { data, error } = await supabaseClient.from('spots').select('*').order('created_at', { ascending: false });
     if (error) {
-      console.error(error);
       document.getElementById('syncStatus').textContent = '⚠️ ' + (error.message || '接続エラー');
     } else {
       sharedSpots = data || [];
       document.getElementById('syncStatus').textContent = `🟢 リアルタイム共有中 (${sharedSpots.length}件)`;
       renderMarkers(currentFilter);
-
-      if (openedSpotId && markerMap[openedSpotId]) {
-        markerMap[openedSpotId].openPopup();
-      }
-      if (document.getElementById('locationModal').style.display === 'flex') {
-        filterRegisteredPins();
-      }
+      if (openedSpotId && markerMap[openedSpotId]) markerMap[openedSpotId].openPopup();
+      if (document.getElementById('locationModal').style.display === 'flex') filterRegisteredPins();
     }
   }
 
@@ -1740,23 +929,15 @@
     currentFilter = filter;
     markersLayer.clearLayers();
     markerMap = {};
-
     sharedSpots.forEach(spot => {
       if (filter !== 'all' && spot.category !== filter) return;
       const meta = catMeta[spot.category] || catMeta.local;
-
       const customIcon = L.divIcon({
         className: 'custom-pin',
         html: `<div style="background:${meta.color}; width:24px; height:24px; border-radius:50%; border:3px solid white; box-shadow:0 2px 5px rgba(0,0,0,0.4);"></div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12]
+        iconSize: [24, 24], iconAnchor: [12, 12]
       });
-
-      const marker = L.marker([spot.lat, spot.lng], { icon: customIcon })
-        .bindPopup(buildPopupHtml(spot), { maxWidth: 295 })
-        .addTo(markersLayer);
-
-      markerMap[spot.id] = marker;
+      markerMap[spot.id] = L.marker([spot.lat, spot.lng], { icon: customIcon }).bindPopup(buildPopupHtml(spot), { maxWidth: 295 }).addTo(markersLayer);
     });
   }
 
@@ -1769,10 +950,7 @@
     document.getElementById('editSpotDesc').value = target.desc || '';
     document.getElementById('editModal').style.display = 'flex';
   }
-
-  function closeEditModal() {
-    document.getElementById('editModal').style.display = 'none';
-  }
+  function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
 
   async function saveEditedSpot() {
     const id = parseInt(document.getElementById('editSpotId').value, 10);
@@ -1780,52 +958,23 @@
     const title = document.getElementById('editSpotTitle').value.trim();
     const desc = document.getElementById('editSpotDesc').value.trim();
     const updateBtn = document.getElementById('updateBtn');
-
-    if (!title) {
-      alert('タイトルを入力してください。');
-      return;
-    }
-
-    updateBtn.disabled = true;
-    updateBtn.textContent = '更新中...';
-
+    if (!title) return alert('タイトルを入力してください。');
+    updateBtn.disabled = true; updateBtn.textContent = '更新中...';
     try {
-      const { error } = await supabaseClient.rpc('admin_update_spot', {
-        admin_pass: adminPassword,
-        target_id: id,
-        new_category: category,
-        new_title: title,
-        new_desc: desc
-      });
-
+      const { error } = await supabaseClient.rpc('admin_update_spot', { admin_pass: adminPassword, target_id: id, new_category: category, new_title: title, new_desc: desc });
       if (error) throw error;
-
-      closeEditModal();
-      await loadSpots();
-      alert('投稿内容を更新しました！');
-    } catch (err) {
-      console.error(err);
-      alert('更新に失敗しました（パスワードが違うか、SQL関数が未設定です）：' + (err.message || ''));
-    } finally {
-      updateBtn.disabled = false;
-      updateBtn.textContent = '変更を保存する';
-    }
+      closeEditModal(); await loadSpots(); alert('投稿内容を更新しました！');
+    } catch (err) { alert('更新に失敗しました：' + (err.message || '')); }
+    finally { updateBtn.disabled = false; updateBtn.textContent = '変更を保存する'; }
   }
 
   async function deleteSpot(id) {
     if (!confirm('この投稿を完全に削除しますか？')) return;
     try {
-      const { error } = await supabaseClient.rpc('admin_delete_spot', {
-        admin_pass: adminPassword,
-        target_id: id
-      });
+      const { error } = await supabaseClient.rpc('admin_delete_spot', { admin_pass: adminPassword, target_id: id });
       if (error) throw error;
-      await loadSpots();
-      alert('投稿を削除しました。');
-    } catch (err) {
-      console.error(err);
-      alert('削除に失敗しました（パスワードが違う可能性があります）：' + (err.message || ''));
-    }
+      await loadSpots(); alert('投稿を削除しました。');
+    } catch (err) { alert('削除に失敗しました：' + (err.message || '')); }
   }
 
   function escapeHtml(str) {
@@ -1842,10 +991,8 @@
           const canvas = document.createElement('canvas');
           const maxW = 500;
           const scale = img.width > maxW ? maxW / img.width : 1;
-          canvas.width = img.width * scale;
-          canvas.height = img.height * scale;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.width = img.width * scale; canvas.height = img.height * scale;
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
           resolve(canvas.toDataURL('image/jpeg', 0.65));
         };
         img.src = e.target.result;
@@ -1855,61 +1002,28 @@
   }
 
   async function addSpot() {
-    if (!supabaseClient) {
-      alert('Supabaseの設定がまだ完了していません。');
-      return;
-    }
+    if (!supabaseClient) return alert('Supabaseの設定がまだ完了していません。');
     const category = document.getElementById('spotCategory').value;
     const title = document.getElementById('spotTitle').value.trim();
     const desc = document.getElementById('spotDesc').value.trim();
     const latlngStr = document.getElementById('spotLatLng').value.split(',');
     const photoInput = document.getElementById('spotPhoto');
     const submitBtn = document.getElementById('submitBtn');
-
-    if (!title || latlngStr.length !== 2) {
-      alert('タイトルと正しい位置情報を入力してください。');
-      return;
-    }
-
-    const lat = parseFloat(latlngStr[0]);
-    const lng = parseFloat(latlngStr[1]);
-    submitBtn.disabled = true;
-    submitBtn.textContent = '送信中...';
-
+    if (!title || latlngStr.length !== 2) return alert('タイトルと正しい位置情報を入力してください。');
+    const lat = parseFloat(latlngStr[0]), lng = parseFloat(latlngStr[1]);
+    submitBtn.disabled = true; submitBtn.textContent = '送信中...';
     try {
       let imgData = '';
-      if (photoInput.files && photoInput.files[0]) {
-        imgData = await compressImage(photoInput.files[0]);
-      }
-
-      const { error } = await supabaseClient
-        .from('spots')
-        .insert([{
-          category,
-          title,
-          desc,
-          lat,
-          lng,
-          img: imgData,
-          reactions: { like: 0, check: 0, idea: 0, heart: 0 },
-          comments: []
-        }]);
-
+      if (photoInput.files && photoInput.files[0]) imgData = await compressImage(photoInput.files[0]);
+      const { error } = await supabaseClient.from('spots').insert([{
+        category, title, desc, lat, lng, img: imgData, reactions: { like: 0, check: 0, idea: 0, heart: 0 }, comments: []
+      }]);
       if (error) throw error;
-
-      map.setView([lat, lng], 15);
-      closeModal();
-      document.getElementById('spotTitle').value = '';
-      document.getElementById('spotDesc').value = '';
-      photoInput.value = '';
+      map.setView([lat, lng], 15); closeModal();
+      document.getElementById('spotTitle').value = ''; document.getElementById('spotDesc').value = ''; photoInput.value = '';
       await loadSpots();
-    } catch (err) {
-      console.error(err);
-      alert('投稿の保存に失敗しました：' + (err.message || '設定を確認してください'));
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'みんなに共有する';
-    }
+    } catch (err) { alert('投稿の保存に失敗しました：' + (err.message || '')); }
+    finally { submitBtn.disabled = false; submitBtn.textContent = 'みんなに共有する'; }
   }
 
   function filterSpots(cat, btn) {
@@ -1925,8 +1039,7 @@
   function getCurrentLocation() {
     if (!navigator.geolocation) return alert('GPS非対応です。');
     navigator.geolocation.getCurrentPosition(pos => {
-      const lat = pos.coords.latitude.toFixed(6);
-      const lng = pos.coords.longitude.toFixed(6);
+      const lat = pos.coords.latitude.toFixed(6), lng = pos.coords.longitude.toFixed(6);
       document.getElementById('spotLatLng').value = `${lat}, ${lng}`;
       map.setView([lat, lng], 15);
       alert('現在地を取得しました！');
