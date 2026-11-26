@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>えびの地域共創＆探究マップ（リアルタイム共有・ナビ対応版）</title>
+  <title>えびの地域共創＆探究マップ（リアルタイム共有・ナビ・防災レイヤー対応版）</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -80,8 +80,13 @@
       background: #1565c0;
       border-color: #1565c0;
     }
-    .map-layer-btn {
+    .layer-controls-group {
       margin-left: auto;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .map-layer-btn, .hazard-toggle-btn {
       border: 1px solid #455a64;
       background: #eceff1;
       color: #263238;
@@ -97,6 +102,55 @@
       background: #37474f;
       color: #fff;
       border-color: #263238;
+    }
+    .hazard-toggle-btn.active {
+      background: #d84315;
+      color: #fff;
+      border-color: #bf360c;
+    }
+
+    /* 防災・地形オーバーレイ操作パネル */
+    #hazardPanel {
+      display: none;
+      position: fixed;
+      top: 108px;
+      right: 12px;
+      width: 270px;
+      background: rgba(255, 255, 255, 0.97);
+      border: 2px solid #d84315;
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.24);
+      z-index: 1003;
+      font-size: 0.82rem;
+    }
+    .hazard-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #bf360c;
+    }
+    .hazard-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 4px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+    }
+    .hazard-option:last-of-type { border-bottom: none; }
+    .hazard-opacity-row {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #ccc;
+      font-size: 0.76rem;
+      color: #444;
+    }
+    .hazard-opacity-row input[type="range"] {
+      width: 100%;
+      margin-top: 4px;
     }
 
     #map { flex: 1; width: 100%; z-index: 1; }
@@ -322,7 +376,7 @@
       text-overflow: ellipsis;
     }
 
-    .popup-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
+    .popup-img { width: 100%; max-height: 130px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-bottom: 4px; }
 
     /* リアクションボタンバー */
@@ -360,6 +414,80 @@
       color: #1b5e20;
       font-weight: bold;
     }
+
+    /* ミニコメント・現地追記セクション */
+    .comments-section {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #eee;
+    }
+    .comments-header {
+      font-size: 0.74rem;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 4px;
+    }
+    .comments-list {
+      max-height: 95px;
+      overflow-y: auto;
+      background: #f9fbf9;
+      border: 1px solid #e0e6e0;
+      border-radius: 6px;
+      padding: 5px 7px;
+      margin-bottom: 5px;
+      font-size: 0.74rem;
+    }
+    .comment-item {
+      padding: 3px 0;
+      border-bottom: 1px dashed #e0e0e0;
+      line-height: 1.35;
+    }
+    .comment-item:last-child { border-bottom: none; }
+    .comment-meta {
+      font-weight: bold;
+      color: #2e7d32;
+      margin-right: 4px;
+    }
+    .comment-time {
+      font-size: 0.66rem;
+      color: #888;
+      margin-left: 4px;
+    }
+    .comment-form {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .comment-form-row {
+      display: flex;
+      gap: 4px;
+    }
+    .comment-author-input {
+      width: 72px;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.74rem;
+    }
+    .comment-text-input {
+      flex: 1;
+      padding: 4px 6px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.74rem;
+    }
+    .comment-send-btn {
+      background: #2e7d32;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.74rem;
+      font-weight: bold;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .comment-send-btn:hover { background: #1b5e20; }
 
     .btn-nav-sm {
       display: block;
@@ -413,7 +541,42 @@
   <button class="filter-btn" onclick="filterSpots('local', this)">🏪 ローカル・穴場</button>
   <button class="filter-btn" onclick="filterSpots('fishing', this)">🎣 釣り場</button>
   <button class="filter-btn tankyu-btn" onclick="filterSpots('tankyu', this)">📊 地域探索レイヤー</button>
-  <button class="map-layer-btn" id="mapLayerBtn" onclick="toggleBaseMap()">🛰️ 航空写真に切替</button>
+  <div class="layer-controls-group">
+    <button class="map-layer-btn" id="mapLayerBtn" onclick="toggleBaseMap()">🛰️ 航空写真に切替</button>
+    <button class="hazard-toggle-btn" id="hazardBtn" onclick="toggleHazardPanel()">🛡️ 防災・地形</button>
+  </div>
+</div>
+
+<!-- 防災・地形オーバーレイ切替パネル -->
+<div id="hazardPanel">
+  <div class="hazard-panel-header">
+    <span>🛡️ 防災・地形オーバーレイ</span>
+    <button class="nav-close-btn" onclick="toggleHazardPanel()" title="閉じる">×</button>
+  </div>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="none" checked onchange="setHazardOverlay('none')" />
+    <span>重ね合わせなし</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="flood" onchange="setHazardOverlay('flood')" />
+    <span>🌊 洪水浸水想定区域（想定最大）</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="landslide" onchange="setHazardOverlay('landslide')" />
+    <span>⛰️ 土砂災害警戒区域（土石流）</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="hillshade" onchange="setHazardOverlay('hillshade')" />
+    <span>🗻 陰影起伏図（地形の凹凸）</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="relief" onchange="setHazardOverlay('relief')" />
+    <span>🌈 色別標高図（高低差を色分け）</span>
+  </label>
+  <div class="hazard-opacity-row">
+    <div>透過度（濃さ）：<strong id="hazardOpacityVal">60%</strong></div>
+    <input type="range" id="hazardOpacitySlider" min="20" max="90" value="60" oninput="updateHazardOpacity(this.value)" />
+  </div>
 </div>
 
 <div id="map"></div>
@@ -563,6 +726,32 @@
     maxZoom: 18
   });
 
+  // 防災・地形オーバーレイレイヤー定義（国土地理院・ハザードマップポータル）
+  const hazardTileLayers = {
+    flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>',
+      opacity: 0.6,
+      maxZoom: 17
+    }),
+    landslide: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/05_dosekiryukeikaikuiki/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>',
+      opacity: 0.6,
+      maxZoom: 17
+    }),
+    hillshade: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/hillshademap/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+      opacity: 0.6,
+      maxZoom: 16
+    }),
+    relief: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+      opacity: 0.6,
+      maxZoom: 15
+    })
+  };
+  let activeHazardKey = 'none';
+  let hazardOpacity = 0.6;
+
   let isPhotoMode = false;
   stdTileLayer.addTo(map);
 
@@ -580,6 +769,51 @@
       isPhotoMode = true;
       btn.classList.add('photo-active');
       btn.textContent = '🗺️ 標準地図に戻す';
+    }
+    // 防災オーバーレイが有効なら常に最前面（ベース地図の上）に再配置
+    if (activeHazardKey !== 'none' && hazardTileLayers[activeHazardKey]) {
+      hazardTileLayers[activeHazardKey].bringToFront();
+    }
+  }
+
+  function toggleHazardPanel() {
+    const panel = document.getElementById('hazardPanel');
+    panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+  }
+
+  function setHazardOverlay(key) {
+    if (activeHazardKey !== 'none' && hazardTileLayers[activeHazardKey]) {
+      map.removeLayer(hazardTileLayers[activeHazardKey]);
+    }
+    activeHazardKey = key;
+
+    const btn = document.getElementById('hazardBtn');
+    if (key === 'none') {
+      btn.classList.remove('active');
+      btn.textContent = '🛡️ 防災・地形';
+    } else {
+      const layer = hazardTileLayers[key];
+      if (layer) {
+        layer.setOpacity(hazardOpacity);
+        layer.addTo(map);
+        layer.bringToFront();
+      }
+      btn.classList.add('active');
+      const labels = {
+        flood: '🌊 洪水想定ON',
+        landslide: '⛰️ 土砂警戒ON',
+        hillshade: '🗻 陰影起伏ON',
+        relief: '🌈 標高図ON'
+      };
+      btn.textContent = labels[key] || '🛡️ 防災・地形ON';
+    }
+  }
+
+  function updateHazardOpacity(val) {
+    hazardOpacity = Number(val) / 100;
+    document.getElementById('hazardOpacityVal').textContent = `${val}%`;
+    if (activeHazardKey !== 'none' && hazardTileLayers[activeHazardKey]) {
+      hazardTileLayers[activeHazardKey].setOpacity(hazardOpacity);
     }
   }
 
@@ -718,9 +952,12 @@
     { key: 'heart', emoji: '❤️', title: '応援！' }
   ];
   const USER_REACTIONS_KEY = 'ebino_map_user_reactions_v1';
+  const USER_NAME_KEY = 'ebino_map_comment_author_v1';
   let userReactions = {};
+  let savedAuthorName = '';
   try {
     userReactions = JSON.parse(localStorage.getItem(USER_REACTIONS_KEY) || '{}');
+    savedAuthorName = localStorage.getItem(USER_NAME_KEY) || '';
   } catch (e) {
     userReactions = {};
   }
@@ -744,12 +981,23 @@
     const meta = catMeta[spot.category] || catMeta.local;
     const imgHtml = spot.img ? `<img src="${spot.img}" class="popup-img" />` : '';
     const r = spot.reactions || { like: 0, check: 0, idea: 0, heart: 0 };
+    const comments = Array.isArray(spot.comments) ? spot.comments : [];
 
     const reactionButtonsHtml = reactionTypes.map(rt => {
       const count = Number(r[rt.key] || 0);
       const activeClass = hasReacted(spot.id, rt.key) ? 'reacted' : '';
       return `<button type="button" class="reaction-btn ${activeClass}" title="${rt.title}" onclick="toggleReaction(${spot.id}, '${rt.key}')">${rt.emoji} <span>${count}</span></button>`;
     }).join('');
+
+    const commentsListHtml = comments.length > 0
+      ? comments.map(c => `
+          <div class="comment-item">
+            <span class="comment-meta">${escapeHtml(c.author || '匿名')}:</span>
+            <span>${escapeHtml(c.text)}</span>
+            <span class="comment-time">${escapeHtml(c.created_at || '')}</span>
+          </div>
+        `).join('')
+      : '<div style="color:#888; font-size:0.72rem;">まだ現地追記はありません。</div>';
 
     const adminControls = adminPassword ? `
       <div class="admin-popup-actions">
@@ -759,16 +1007,79 @@
     ` : '';
 
     return `
-      <div style="min-width:220px;">
+      <div style="min-width:235px; max-width:270px;">
         <span class="badge" style="background:${meta.color};">${meta.label}</span>
         <h4 style="margin:4px 0; font-size:0.95rem;">${escapeHtml(spot.title)}</h4>
         <p style="font-size:0.82rem; color:#444; line-height:1.4;">${escapeHtml(spot.desc)}</p>
         ${imgHtml}
         <div class="reaction-bar">${reactionButtonsHtml}</div>
+
+        <div class="comments-section">
+          <div class="comments-header">💬 現地追記・ミニコメント (${comments.length}件)</div>
+          <div class="comments-list">${commentsListHtml}</div>
+          <div class="comment-form">
+            <div class="comment-form-row">
+              <input type="text" id="cAuthor_${spot.id}" class="comment-author-input" placeholder="名前(任意)" maxlength="20" value="${escapeHtml(savedAuthorName)}" />
+              <input type="text" id="cText_${spot.id}" class="comment-text-input" placeholder="現地の様子を追記..." maxlength="120" onkeydown="if(event.key==='Enter') submitSpotComment(${spot.id})" />
+              <button type="button" id="cBtn_${spot.id}" class="comment-send-btn" onclick="submitSpotComment(${spot.id})">追記</button>
+            </div>
+          </div>
+        </div>
+
         <button class="btn-nav-sm" onclick="startNavigationById(${spot.id})">🧭 ここへナビ</button>
         ${adminControls}
       </div>
     `;
+  }
+
+  async function submitSpotComment(spotId) {
+    if (!supabaseClient) return;
+    const authorInput = document.getElementById(`cAuthor_${spotId}`);
+    const textInput = document.getElementById(`cText_${spotId}`);
+    const sendBtn = document.getElementById(`cBtn_${spotId}`);
+    if (!textInput) return;
+
+    const author = (authorInput ? authorInput.value : '').trim();
+    const text = textInput.value.trim();
+    if (!text) {
+      alert('追記するコメントを入力してください。');
+      return;
+    }
+
+    if (author) {
+      savedAuthorName = author;
+      try { localStorage.setItem(USER_NAME_KEY, author); } catch (e) {}
+    }
+
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = '...';
+    }
+
+    try {
+      const { data, error } = await supabaseClient.rpc('add_spot_comment', {
+        target_id: spotId,
+        author_name: author || '匿名',
+        comment_body: text
+      });
+      if (error) throw error;
+
+      const target = sharedSpots.find(s => s.id === spotId);
+      if (target && data) {
+        target.comments = data;
+        if (markerMap[spotId]) {
+          markerMap[spotId].setPopupContent(buildPopupHtml(target));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert('コメントの送信に失敗しました（SupabaseのSQL設定が未実行の可能性があります）：' + (err.message || ''));
+    } finally {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = '追記';
+      }
+    }
   }
 
   async function toggleReaction(spotId, key) {
@@ -779,7 +1090,6 @@
     const already = hasReacted(spotId, key);
     const delta = already ? -1 : 1;
 
-    // 画面上を即座に更新（体感速度向上）
     if (!target.reactions) {
       target.reactions = { like: 0, check: 0, idea: 0, heart: 0 };
     }
@@ -805,7 +1115,6 @@
       }
     } catch (err) {
       console.error(err);
-      // 失敗時はロールバックして通知
       target.reactions[key] = Math.max(0, Number(target.reactions[key] || 0) - delta);
       setReacted(spotId, key, already);
       if (markerMap[spotId]) {
@@ -967,7 +1276,7 @@
       return;
     }
 
-    // 現在開いている吹き出しがあればIDを覚えておく
+    // 入力中のコメント欄がある場合は吹き出しを閉じずに中身だけ更新
     let openedSpotId = null;
     Object.keys(markerMap).forEach(id => {
       if (markerMap[id] && markerMap[id].isPopupOpen()) {
@@ -1014,7 +1323,7 @@
       });
 
       const marker = L.marker([spot.lat, spot.lng], { icon: customIcon })
-        .bindPopup(buildPopupHtml(spot))
+        .bindPopup(buildPopupHtml(spot), { maxWidth: 290 })
         .addTo(markersLayer);
 
       markerMap[spot.id] = marker;
@@ -1152,7 +1461,8 @@
           lat,
           lng,
           img: imgData,
-          reactions: { like: 0, check: 0, idea: 0, heart: 0 }
+          reactions: { like: 0, check: 0, idea: 0, heart: 0 },
+          comments: []
         }]);
 
       if (error) throw error;
