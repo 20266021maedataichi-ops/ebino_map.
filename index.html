@@ -197,6 +197,22 @@
   .dash-rank-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #fff; border: 1px solid #eee; border-radius: 6px; margin-bottom: 5px; font-size: 0.8rem; cursor: pointer; }
   .dash-rank-item:hover { background: #f1f8e9; border-color: #81c784; }
   .dash-rank-badge { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: #2e7d32; color: #fff; font-size: 0.72rem; font-weight: bold; margin-right: 6px; flex-shrink: 0; }
+      /* 避難シミュレーション機能用スタイル */
+  .evac-header-btn { background: #d32f2f; color: #fff; border: 1px solid rgba(255,255,255,0.65); padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.15s; }
+  .evac-header-btn:hover { background: #b71c1c; }
+  #evacModal .modal { max-width: 500px; width: 95%; padding: 18px; }
+  .evac-origin-btns { display: flex; gap: 6px; margin-bottom: 12px; }
+  .evac-origin-btn { flex: 1; padding: 8px 6px; border: 1px solid #0288d1; background: #e1f5fe; color: #01579b; border-radius: 8px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
+  .evac-origin-btn.active { background: #0288d1; color: #fff; }
+  .evac-card { background: #fff; border: 1px solid #ddd; border-left: 5px solid #2e7d32; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+  .evac-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .evac-card-title { font-weight: bold; font-size: 0.9rem; color: #1b5e20; }
+  .evac-card-dist { font-size: 0.78rem; font-weight: bold; color: #0277bd; background: #e1f5fe; padding: 2px 7px; border-radius: 10px; }
+  .evac-warn-box { background: #ffebee; border: 1px solid #ef9a9a; border-radius: 6px; padding: 6px 8px; margin-top: 6px; font-size: 0.76rem; color: #b71c1c; }
+  .evac-safe-box { background: #e8f5e9; border: 1px solid #a5d6a7; border-radius: 6px; padding: 5px 8px; margin-top: 6px; font-size: 0.75rem; color: #2e7d32; }
+  .evac-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .evac-route-btn { flex: 2; background: #2e7d32; color: #fff; border: none; border-radius: 6px; padding: 6px 8px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
+  .evac-hazard-btn { flex: 1; background: #d84315; color: #fff; border: none; border-radius: 6px; padding: 6px 8px; font-size: 0.76rem; font-weight: bold; cursor: pointer; }
   </style>
     <script>
   (function() {
@@ -236,6 +252,7 @@
   <div class="header-actions">
     <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">☀️ 天気読込中</button>
       <button class="dashboard-header-btn" onclick="openDashboardModal()">📊 探究集計</button>
+      <button class="evac-header-btn" onclick="openEvacModal()">🏃 避難模擬</button>
     <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
     <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
       <button class="tutorial-btn" onclick="openTutorial()">❓ 使い方</button>
@@ -1705,6 +1722,160 @@
         ${rankHtml}
       </div>`;
   }
+    // --- 避難所シミュレーション＆危険度チェック（パターンA） ---
+  const EBINO_SHELTERS = [
+    { id: 'sh1', name: '飯野小学校（体育館・校舎）', area: '飯野地区', lat: 32.03185, lng: 130.86910, note: '洪水・地震対応 指定避難所' },
+    { id: 'sh2', name: '飯野中学校', area: '飯野地区', lat: 32.02790, lng: 130.86640, note: '高台側・総合避難所' },
+    { id: 'sh3', name: '飯野高等学校', area: '飯野地区', lat: 32.02580, lng: 130.87320, note: '広域避難場所・グラウンド' },
+    { id: 'sh4', name: '飯野地区コミュニティセンター', area: '飯野地区', lat: 32.03260, lng: 130.87190, note: '福祉・一時避難拠点' },
+    { id: 'sh5', name: '加久藤小学校', area: '加久藤地区', lat: 32.04490, lng: 130.81840, note: '洪水・地震対応 指定避難所' },
+    { id: 'sh6', name: '加久藤中学校', area: '加久藤地区', lat: 32.04710, lng: 130.82150, note: '高台側・指定避難所' },
+    { id: 'sh7', name: 'えびの市役所（防災拠点）', area: '加久藤地区', lat: 32.04190, lng: 130.81260, note: '災害対策本部・一時避難' },
+    { id: 'sh8', name: 'えびの市文化センター', area: '加久藤地区', lat: 32.04020, lng: 130.81410, note: '指定避難所' },
+    { id: 'sh9', name: '真幸小学校', area: '真幸地区', lat: 32.04680, lng: 130.76620, note: '指定避難所' },
+    { id: 'sh10', name: '真幸中学校', area: '真幸地区', lat: 32.04890, lng: 130.77140, note: '高台側・指定避難所' },
+    { id: 'sh11', name: '真幸地区体育館（岡松周辺）', area: '真幸地区', lat: 32.04390, lng: 130.76890, note: '地域避難所' },
+    { id: 'sh12', name: '京町温泉駅周辺 一時避難広場', area: '真幸地区', lat: 32.04610, lng: 130.75780, note: '一時集合場所' }
+  ];
+
+  let evacLayer = L.layerGroup().addTo(map);
+  let lastEvacOrigin = null;
+
+  function openEvacModal() {
+    document.getElementById('evacModal').style.display = 'flex';
+    runEvacSimFromMapCenter();
+  }
+
+  function closeEvacModal() {
+    document.getElementById('evacModal').style.display = 'none';
+  }
+
+  function clearEvacLayer() {
+    evacLayer.clearLayers();
+    closeEvacModal();
+  }
+
+  function calcDistanceMeters(lat1, lng1, lat2, lng2) {
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // 線分(出発地→避難所)と危険箇所ピンの最短距離(m)を概算
+  function distPointToSegmentMeters(pLat, pLng, aLat, aLng, bLat, bLng) {
+    const steps = 10;
+    let minD = Infinity;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const lat = aLat + (bLat - aLat) * t;
+      const lng = aLng + (bLng - aLng) * t;
+      const d = calcDistanceMeters(pLat, pLng, lat, lng);
+      if (d < minD) minD = d;
+    }
+    return minD;
+  }
+
+  function runEvacSimFromMapCenter() {
+    document.getElementById('evacOriginMapBtn').classList.add('active');
+    document.getElementById('evacOriginGpsBtn').classList.remove('active');
+    const c = map.getCenter();
+    evaluateEvacuationRoutes(c.lat, c.lng, '現在の地図の中心地点');
+  }
+
+  function runEvacSimFromGps() {
+    if (!navigator.geolocation) return alert('お使いの端末はGPSに対応していません。');
+    document.getElementById('evacOriginGpsBtn').classList.add('active');
+    document.getElementById('evacOriginMapBtn').classList.remove('active');
+    document.getElementById('evacOriginStatus').textContent = '📡 現在地を取得しています...';
+    navigator.geolocation.getCurrentPosition(
+      pos => evaluateEvacuationRoutes(pos.coords.latitude, pos.coords.longitude, '現在のGPS位置'),
+      () => {
+        alert('GPS位置を取得できませんでした。地図の中心地点から計算します。');
+        runEvacSimFromMapCenter();
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }
+
+  function evaluateEvacuationRoutes(originLat, originLng, originLabel) {
+    lastEvacOrigin = { lat: originLat, lng: originLng, label: originLabel };
+    document.getElementById('evacOriginStatus').textContent = `出発地：${originLabel}（緯度:${originLat.toFixed(4)}, 経度:${originLng.toFixed(4)}）`;
+
+    const dangerSpots = (sharedSpots || []).filter(s => s.category === 'danger');
+
+    const ranked = EBINO_SHELTERS.map(sh => {
+      const distM = Math.round(calcDistanceMeters(originLat, originLng, sh.lat, sh.lng));
+      // 道路迂回率(約1.25倍)を加味した徒歩時間（分速67m≒時速4km）
+      const walkMin = Math.max(1, Math.round((distM * 1.25) / 67));
+      const nearbyDangers = dangerSpots.filter(ds =>
+        distPointToSegmentMeters(Number(ds.lat), Number(ds.lng), originLat, originLng, sh.lat, sh.lng) <= 180
+      );
+      return { ...sh, distM, walkMin, nearbyDangers };
+    }).sort((a, b) => a.distM - b.distM).slice(0, 3);
+
+    const listEl = document.getElementById('evacResultsList');
+    listEl.innerHTML = ranked.map((sh, idx) => {
+      const warnHtml = sh.nearbyDangers.length > 0
+        ? `<div class="evac-warn-box">⚠️ <strong>経路周辺に危険箇所ピンが ${sh.nearbyDangers.length}件 あります：</strong><br>${sh.nearbyDangers.map(d => `・${escapeHtml(d.title)}`).join('<br>')}</div>`
+        : `<div class="evac-safe-box">✅ 経路周辺（180m以内）に登録済みの危険箇所ピンはありません。</div>`;
+
+      return `
+        <div class="evac-card" style="border-left-color:${idx === 0 ? '#d32f2f' : '#2e7d32'};">
+          <div class="evac-card-top">
+            <span class="evac-card-title">${idx === 0 ? '🥇 最寄り ' : `${idx + 1}. `}${escapeHtml(sh.name)}</span>
+            <span class="evac-card-dist">直線 ${sh.distM}m / 徒歩約${sh.walkMin}分</span>
+          </div>
+          <div style="font-size:0.74rem; color:#555;">${escapeHtml(sh.area)} ｜ ${escapeHtml(sh.note)}</div>
+          ${warnHtml}
+          <div class="evac-actions">
+            <button type="button" class="evac-route-btn" onclick="drawEvacRouteTo('${sh.id}', false)">🧭 ルートを地図に表示</button>
+            <button type="button" class="evac-hazard-btn" onclick="drawEvacRouteTo('${sh.id}', true)">🌊 洪水ハザード重ねて表示</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function drawEvacRouteTo(shelterId, withFloodHazard) {
+    const sh = EBINO_SHELTERS.find(s => s.id === shelterId);
+    if (!sh || !lastEvacOrigin) return;
+
+    evacLayer.clearLayers();
+    const originPt = [lastEvacOrigin.lat, lastEvacOrigin.lng];
+    const destPt = [sh.lat, sh.lng];
+
+    // 出発地・避難所マーカーと避難ルート線を描画
+    L.circleMarker(originPt, { radius: 8, color: '#fff', weight: 2, fillColor: '#0288d1', fillOpacity: 1 })
+      .bindPopup(`<strong>出発地：${escapeHtml(lastEvacOrigin.label)}</strong>`).addTo(evacLayer);
+
+    const destMarker = L.circleMarker(destPt, { radius: 10, color: '#fff', weight: 3, fillColor: '#2e7d32', fillOpacity: 1 })
+      .bindPopup(`<strong>🏃 避難先：${escapeHtml(sh.name)}</strong><br><span style="font-size:0.78rem;">${escapeHtml(sh.note)}</span>`)
+      .addTo(evacLayer);
+
+    L.polyline([originPt, destPt], { color: '#d32f2f', weight: 5, dashArray: '10, 8', opacity: 0.9 }).addTo(evacLayer);
+
+    // 経路周辺の危険箇所ピンを赤い警告サークルで強調表示
+    const dangerSpots = (sharedSpots || []).filter(s => s.category === 'danger');
+    dangerSpots.forEach(ds => {
+      if (distPointToSegmentMeters(Number(ds.lat), Number(ds.lng), lastEvacOrigin.lat, lastEvacOrigin.lng, sh.lat, sh.lng) <= 180) {
+        L.circle([Number(ds.lat), Number(ds.lng)], {
+          radius: 90, color: '#d32f2f', weight: 2, fillColor: '#ff1744', fillOpacity: 0.22
+        }).bindPopup(`⚠️ <strong>避難経路上の注意箇所：${escapeHtml(ds.title)}</strong>`).addTo(evacLayer);
+      }
+    });
+
+    if (withFloodHazard) {
+      const floodRadio = document.querySelector('input[name="hazardOverlay"][value="flood"]');
+      if (floodRadio) floodRadio.checked = true;
+      setHazardOverlay('flood');
+    }
+
+    closeEvacModal();
+    map.fitBounds(L.latLngBounds([originPt, destPt]), { padding: [60, 60] });
+    setTimeout(() => destMarker.openPopup(), 300);
+  }
 </script>
     <!-- チュートリアルモーダル -->
 <div id="tutorialModal" onclick="if(event.target===this) closeTutorial()">
@@ -1739,6 +1910,25 @@
     <div id="dashboardContent"></div>
     <div class="modal-actions" style="margin-top:10px;">
       <button class="btn-submit" style="width:100%;" onclick="closeDashboardModal()">マップに戻る</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="evacModal" onclick="if(event.target===this) closeEvacModal()">
+  <div class="modal">
+    <div class="dash-header" style="border-bottom-color:#ffcdd2;">
+      <h2 style="color:#c62828;">🏃 避難所シミュレーション＆危険度チェック</h2>
+      <button class="nav-close-btn" onclick="closeEvacModal()" title="閉じる">×</button>
+    </div>
+    <p style="font-size:0.78rem; color:#555; margin-bottom:8px;">出発地を選ぶと、最寄りの避難所TOP3と経路周辺の「⚠️危険箇所ピン」を自動チェックします。</p>
+    <div class="evac-origin-btns">
+      <button type="button" class="evac-origin-btn active" id="evacOriginMapBtn" onclick="runEvacSimFromMapCenter()">📍 地図の中心から</button>
+      <button type="button" class="evac-origin-btn" id="evacOriginGpsBtn" onclick="runEvacSimFromGps()">📡 現在地(GPS)から</button>
+    </div>
+    <div id="evacOriginStatus" style="font-size:0.75rem; color:#01579b; font-weight:bold; margin-bottom:10px;"></div>
+    <div id="evacResultsList"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button type="button" class="btn-cancel" onclick="clearEvacLayer()">ルート消去</button>
+      <button type="button" class="btn-submit" style="background:#c62828;" onclick="closeEvacModal()">閉じる</button>
     </div>
   </div>
 </div>
