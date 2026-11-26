@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>えびの地域共創＆探究マップ（リアルタイム共有・ナビ・防災レイヤー対応版）</title>
+  <title>えびの地域共創＆探究マップ（リアルタイム共有・ナビ・防災・天気対応版）</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -33,15 +33,25 @@
       white-space: nowrap;
       cursor: pointer;
     }
-    .area-select-btn, .admin-toggle-btn {
+    .area-select-btn, .admin-toggle-btn, .weather-header-btn {
       background: rgba(0,0,0,0.25);
       color: #fff;
       border: 1px solid rgba(255,255,255,0.4);
-      padding: 4px 8px;
+      padding: 4px 9px;
       border-radius: 12px;
       font-size: 0.72rem;
       cursor: pointer;
       white-space: nowrap;
+      transition: 0.15s;
+    }
+    .weather-header-btn {
+      background: rgba(2, 119, 189, 0.75);
+      border-color: rgba(255,255,255,0.65);
+      font-weight: bold;
+    }
+    .weather-header-btn.active {
+      background: #0288d1;
+      box-shadow: 0 0 0 2px #fff;
     }
     .admin-toggle-btn.active {
       background: #ffb300;
@@ -109,13 +119,13 @@
       border-color: #bf360c;
     }
 
-    /* 防災・地形オーバーレイ操作パネル */
+    /* 防災・地形・雨雲オーバーレイ操作パネル */
     #hazardPanel {
       display: none;
       position: fixed;
       top: 108px;
       right: 12px;
-      width: 270px;
+      width: 280px;
       background: rgba(255, 255, 255, 0.97);
       border: 2px solid #d84315;
       border-radius: 10px;
@@ -152,6 +162,114 @@
       width: 100%;
       margin-top: 4px;
     }
+
+    /* ピンポイント天気予報パネル */
+    #weatherPanel {
+      display: none;
+      position: fixed;
+      top: 62px;
+      right: 12px;
+      width: 310px;
+      max-width: calc(100vw - 24px);
+      background: rgba(255, 255, 255, 0.98);
+      border: 2px solid #0288d1;
+      border-radius: 12px;
+      padding: 12px 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.26);
+      z-index: 1004;
+      font-size: 0.82rem;
+    }
+    .weather-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e1f5fe;
+    }
+    .weather-panel-title {
+      font-weight: bold;
+      color: #01579b;
+      font-size: 0.9rem;
+    }
+    .weather-area-note {
+      font-size: 0.72rem;
+      color: #555;
+      margin-bottom: 8px;
+    }
+    .weather-current-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(135deg, #e1f5fe, #f0f9ff);
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 8px;
+    }
+    .weather-current-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .weather-big-icon {
+      font-size: 1.9rem;
+    }
+    .weather-temp-val {
+      font-size: 1.35rem;
+      font-weight: bold;
+      color: #01579b;
+    }
+    .weather-desc-text {
+      font-size: 0.76rem;
+      color: #333;
+      font-weight: bold;
+    }
+    .weather-sub-metrics {
+      text-align: right;
+      font-size: 0.72rem;
+      color: #444;
+      line-height: 1.45;
+    }
+    .weather-section-label {
+      font-size: 0.73rem;
+      font-weight: bold;
+      color: #0277bd;
+      margin: 6px 0 4px;
+    }
+    .weather-hourly-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+    .weather-hour-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 5px 3px;
+      text-align: center;
+      font-size: 0.72rem;
+    }
+    .weather-daily-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .weather-day-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px;
+      background: #f9fbfd;
+      border-radius: 5px;
+      font-size: 0.75rem;
+    }
+    .weather-day-name { width: 68px; font-weight: bold; color: #333; }
+    .weather-day-icon { width: 28px; text-align: center; font-size: 0.95rem; }
+    .weather-day-pop  { width: 46px; text-align: right; color: #0288d1; font-size: 0.72rem; }
+    .weather-day-temp { width: 76px; text-align: right; font-weight: bold; }
+    .temp-max { color: #d32f2f; }
+    .temp-min { color: #1976d2; }
 
     #map { flex: 1; width: 100%; z-index: 1; }
 
@@ -550,11 +668,24 @@
     <span>地域の安全・魅力・農業と人口データをみんなで共有</span>
   </div>
   <div class="header-actions">
+    <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">☀️ 天気読込中</button>
     <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
     <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
     <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdminMode()">🔑 管理者</button>
   </div>
 </header>
+
+<!-- ピンポイント天気予報パネル -->
+<div id="weatherPanel">
+  <div class="weather-panel-header">
+    <span class="weather-panel-title">☀️ えびのピンポイント天気予報</span>
+    <button class="nav-close-btn" onclick="toggleWeatherPanel()" title="閉じる">×</button>
+  </div>
+  <div id="weatherAreaNote" class="weather-area-note">対象エリア：加久藤エリア（えびの駅周辺）</div>
+  <div id="weatherContent">
+    <div style="text-align:center; padding:14px; color:#666;">気象データを取得しています...</div>
+  </div>
+</div>
 
 <div class="filter-bar">
   <button class="filter-btn active" id="filterAllBtn" onclick="filterSpots('all', this)">すべて表示</button>
@@ -568,15 +699,19 @@
   </div>
 </div>
 
-<!-- 防災・地形オーバーレイ切替パネル -->
+<!-- 防災・地形・雨雲オーバーレイ切替パネル -->
 <div id="hazardPanel">
   <div class="hazard-panel-header">
-    <span>🛡️ 防災・地形オーバーレイ</span>
+    <span>🛡️ 防災・地形・雨雲重ね合わせ</span>
     <button class="nav-close-btn" onclick="toggleHazardPanel()" title="閉じる">×</button>
   </div>
   <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="none" checked onchange="setHazardOverlay('none')" />
     <span>重ね合わせなし</span>
+  </label>
+  <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="rain" onchange="setHazardOverlay('rain')" />
+    <span>☔ 雨雲レーダー（気象庁最新）</span>
   </label>
   <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="flood" onchange="setHazardOverlay('flood')" />
@@ -768,8 +903,9 @@
     maxZoom: 18
   });
 
-  // 防災・地形オーバーレイレイヤー定義（国土地理院・ハザードマップポータル）
+  // 防災・地形オーバーレイレイヤー定義
   const hazardTileLayers = {
+    rain: null, // 気象庁雨雲レーダーは最新時刻を取得して動的生成
     flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://disaportal.gsi.go.jp/">ハザードマップポータルサイト</a>',
       opacity: 0.6,
@@ -797,6 +933,127 @@
   let isPhotoMode = false;
   stdTileLayer.addTo(map);
 
+  // WMO天気コードから日本語と絵文字に変換
+  function getWeatherMeta(code) {
+    const c = Number(code);
+    if (c === 0) return { icon: '☀️', text: '快晴' };
+    if (c === 1) return { icon: '🌤️', text: '晴れ' };
+    if (c === 2) return { icon: '⛅', text: '一部曇り' };
+    if (c === 3) return { icon: '☁️', text: 'くもり' };
+    if (c === 45 || c === 48) return { icon: '🌫️', text: '霧' };
+    if (c >= 51 && c <= 57) return { icon: '🌦️', text: '霧雨' };
+    if (c >= 61 && c <= 65) return { icon: '🌧️', text: '雨' };
+    if (c === 66 || c === 67) return { icon: '🌧️', text: '冷たい雨' };
+    if (c >= 71 && c <= 77) return { icon: '❄️', text: '雪' };
+    if (c >= 80 && c <= 82) return { icon: '☔', text: 'にわか雨' };
+    if (c === 85 || c === 86) return { icon: '🌨️', text: 'にわか雪' };
+    if (c >= 95) return { icon: '⛈️', text: '雷雨' };
+    return { icon: '🌤️', text: '晴れ' };
+  }
+
+  function toggleWeatherPanel() {
+    const panel = document.getElementById('weatherPanel');
+    const btn = document.getElementById('weatherBtn');
+    const isOpen = (panel.style.display === 'block');
+    panel.style.display = isOpen ? 'none' : 'block';
+    btn.classList.toggle('active', !isOpen);
+    if (!isOpen) {
+      document.getElementById('hazardPanel').style.display = 'none';
+    }
+  }
+
+  async function fetchEbinoWeather(lat, lng, areaLabel) {
+    const btn = document.getElementById('weatherBtn');
+    const noteEl = document.getElementById('weatherAreaNote');
+    const contentEl = document.getElementById('weatherContent');
+
+    noteEl.textContent = `対象エリア：${areaLabel}（緯度:${lat.toFixed(3)}, 経度:${lng.toFixed(3)}）`;
+
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,precipitation,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FTokyo&forecast_days=5`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('気象API応答エラー');
+      const data = await res.json();
+
+      const cur = data.current;
+      const curMeta = getWeatherMeta(cur.weather_code);
+      const curTemp = Math.round(cur.temperature_2m);
+      const curWind = (cur.wind_speed_10m / 3.6).toFixed(1); // km/h -> m/s換算
+      const curPrecip = Number(cur.precipitation || 0).toFixed(1);
+
+      btn.textContent = `${curMeta.icon} ${curTemp}℃ 天気`;
+
+      // 現在時刻以降の3時間ごと予報（4枠＝12時間先まで）
+      const nowTimeStr = cur.time.slice(0, 13); // "YYYY-MM-DDTHH"
+      let startIdx = data.hourly.time.findIndex(t => t.slice(0, 13) >= nowTimeStr);
+      if (startIdx < 0) startIdx = 0;
+
+      let hourlyHtml = '';
+      for (let i = 0; i < 4; i++) {
+        const idx = startIdx + (i * 3);
+        if (idx >= data.hourly.time.length) break;
+        const hTime = data.hourly.time[idx].slice(11, 16);
+        const hMeta = getWeatherMeta(data.hourly.weather_code[idx]);
+        const hTemp = Math.round(data.hourly.temperature_2m[idx]);
+        const hPop = data.hourly.precipitation_probability[idx] ?? 0;
+        hourlyHtml += `
+          <div class="weather-hour-card">
+            <div style="color:#555;">${hTime}</div>
+            <div style="font-size:1.1rem; margin:2px 0;">${hMeta.icon}</div>
+            <div style="font-weight:bold;">${hTemp}℃</div>
+            <div style="color:#0288d1; font-size:0.68rem;">💧${hPop}%</div>
+          </div>
+        `;
+      }
+
+      // 5日間の週間予報
+      const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+      let dailyHtml = '';
+      for (let d = 0; d < data.daily.time.length; d++) {
+        const dateStr = data.daily.time[d];
+        const dt = new Date(dateStr + 'T00:00:00+09:00');
+        const label = d === 0 ? '今日' : (d === 1 ? '明日' : `${dt.getMonth() + 1}/${dt.getDate()}(${weekdays[dt.getDay()]})`);
+        const dMeta = getWeatherMeta(data.daily.weather_code[d]);
+        const maxT = Math.round(data.daily.temperature_2m_max[d]);
+        const minT = Math.round(data.daily.temperature_2m_min[d]);
+        const pop = data.daily.precipitation_probability_max[d] ?? 0;
+
+        dailyHtml += `
+          <div class="weather-day-row">
+            <span class="weather-day-name">${label}</span>
+            <span class="weather-day-icon" title="${dMeta.text}">${dMeta.icon}</span>
+            <span class="weather-day-pop">💧${pop}%</span>
+            <span class="weather-day-temp"><span class="temp-max">${maxT}℃</span> / <span class="temp-min">${minT}℃</span></span>
+          </div>
+        `;
+      }
+
+      contentEl.innerHTML = `
+        <div class="weather-current-box">
+          <div class="weather-current-main">
+            <span class="weather-big-icon">${curMeta.icon}</span>
+            <div>
+              <div class="weather-temp-val">${curTemp}℃</div>
+              <div class="weather-desc-text">${curMeta.text}</div>
+            </div>
+          </div>
+          <div class="weather-sub-metrics">
+            <div>降水量: ${curPrecip} mm/h</div>
+            <div>風速: ${curWind} m/s</div>
+          </div>
+        </div>
+        <div class="weather-section-label">🕒 これから12時間の予報</div>
+        <div class="weather-hourly-row">${hourlyHtml}</div>
+        <div class="weather-section-label">📅 5日間の予報</div>
+        <div class="weather-daily-list">${dailyHtml}</div>
+      `;
+    } catch (e) {
+      console.error(e);
+      btn.textContent = '☀️ 天気予報';
+      contentEl.innerHTML = '<div style="color:#c62828; padding:10px; font-size:0.78rem;">気象データの取得に失敗しました。通信状況を確認してください。</div>';
+    }
+  }
+
   function toggleBaseMap() {
     const btn = document.getElementById('mapLayerBtn');
     if (isPhotoMode) {
@@ -819,10 +1076,15 @@
 
   function toggleHazardPanel() {
     const panel = document.getElementById('hazardPanel');
-    panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+    const isOpen = (panel.style.display === 'block');
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen) {
+      document.getElementById('weatherPanel').style.display = 'none';
+      document.getElementById('weatherBtn').classList.remove('active');
+    }
   }
 
-  function setHazardOverlay(key) {
+  async function setHazardOverlay(key) {
     if (activeHazardKey !== 'none' && hazardTileLayers[activeHazardKey]) {
       map.removeLayer(hazardTileLayers[activeHazardKey]);
     }
@@ -832,22 +1094,49 @@
     if (key === 'none') {
       btn.classList.remove('active');
       btn.textContent = '🛡️ 防災・地形';
-    } else {
-      const layer = hazardTileLayers[key];
-      if (layer) {
-        layer.setOpacity(hazardOpacity);
-        layer.addTo(map);
-        layer.bringToFront();
-      }
-      btn.classList.add('active');
-      const labels = {
-        flood: '🌊 洪水想定ON',
-        landslide: '⛰️ 土砂警戒ON',
-        hillshade: '🗻 陰影起伏ON',
-        relief: '🌈 標高図ON'
-      };
-      btn.textContent = labels[key] || '🛡️ 防災・地形ON';
+      return;
     }
+
+    if (key === 'rain') {
+      btn.classList.add('active');
+      btn.textContent = '☔ 読込中...';
+      try {
+        const res = await fetch('https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json');
+        const list = await res.json();
+        const latest = list[0];
+        const url = `https://www.jma.go.jp/bosai/jmatile/data/nowc/${latest.basetime}/none/${latest.validtime}/surf/hrpns/{z}/{x}/{y}.png`;
+        hazardTileLayers.rain = L.tileLayer(url, {
+          attribution: '&copy; <a href="https://www.jma.go.jp/">気象庁（降水ナウキャスト）</a>',
+          opacity: hazardOpacity,
+          maxZoom: 16
+        });
+        hazardTileLayers.rain.addTo(map);
+        hazardTileLayers.rain.bringToFront();
+        btn.textContent = '☔ 雨雲レーダーON';
+      } catch (e) {
+        console.error(e);
+        alert('気象庁の雨雲レーダーデータの取得に失敗しました。');
+        btn.classList.remove('active');
+        btn.textContent = '🛡️ 防災・地形';
+        activeHazardKey = 'none';
+      }
+      return;
+    }
+
+    const layer = hazardTileLayers[key];
+    if (layer) {
+      layer.setOpacity(hazardOpacity);
+      layer.addTo(map);
+      layer.bringToFront();
+    }
+    btn.classList.add('active');
+    const labels = {
+      flood: '🌊 洪水想定ON',
+      landslide: '⛰️ 土砂警戒ON',
+      hillshade: '🗻 陰影起伏ON',
+      relief: '🌈 標高図ON'
+    };
+    btn.textContent = labels[key] || '🛡️ 防災・地形ON';
   }
 
   function updateHazardOpacity(val) {
@@ -863,6 +1152,7 @@
     map.setView([lat, lng], zoom);
     document.getElementById('spotLatLng').value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     document.getElementById('locationModal').style.display = 'none';
+    fetchEbinoWeather(lat, lng, name);
   }
 
   function selectInitialLocation(index) {
@@ -1647,6 +1937,7 @@
   function closeModal() { document.getElementById('postModal').style.display = 'none'; }
 
   loadSpots();
+  fetchEbinoWeather(currentBaseLocation.lat, currentBaseLocation.lng, currentBaseLocation.name);
 </script>
 </body>
 </html>
