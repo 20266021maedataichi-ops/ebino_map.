@@ -2082,28 +2082,26 @@ function discardGpsTrack() {
   gpsTrackPoints = [];
   closeGpsSaveModal();
 }
-
 async function renderSavedGpsRoutes() {
   try {
-    const dbClient = (typeof supabaseClient !== 'undefined') ? supabaseClient : (typeof db !== 'undefined' ? db : null);
-    if (!dbClient) return;
-    const { data, error } = await dbClient.from('map_areas').select('*');
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+    const { data, error } = await supabaseClient
+      .from('map_areas')
+      .select('*')
+      .eq('category', 'gps_route');
     if (error || !data) return;
 
     savedRoutesLayer.clearLayers();
     data.forEach(item => {
-      try {
-        const parsed = typeof item.points === 'string' ? JSON.parse(item.points) : item.points;
-        if (parsed && parsed.isRoute && Array.isArray(parsed.coords) && parsed.coords.length >= 2) {
-          const lineColor = item.color || '#ef6c00';
-          L.polyline(parsed.coords, { color: '#ffffff', weight: 8, opacity: 0.8 }).addTo(savedRoutesLayer);
-          const routeLine = L.polyline(parsed.coords, { color: lineColor, weight: 5, opacity: 0.92 }).addTo(savedRoutesLayer);
-          routeLine.bindPopup(
-            `<strong>${escapeHtml(item.title || '探索ルート')}</strong><br>` +
-            `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.memo || '')}</div>`
-          );
-        }
-      } catch (e) {}
+      if (Array.isArray(item.coordinates) && item.coordinates.length >= 2) {
+        const lineColor = item.color || '#ef6c00';
+        L.polyline(item.coordinates, { color: '#ffffff', weight: 8, opacity: 0.85 }).addTo(savedRoutesLayer);
+        const routeLine = L.polyline(item.coordinates, { color: lineColor, weight: 5, opacity: 0.95 }).addTo(savedRoutesLayer);
+        routeLine.bindPopup(
+          `<strong>${escapeHtml(item.title || '探索ルート')}</strong><br>` +
+          `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.description || '')}</div>`
+        );
+      }
     });
   } catch (e) {
     console.warn('保存ルートの読み込みスキップ:', e);
@@ -2119,19 +2117,22 @@ async function saveGpsTrackToCloud() {
   const distM = Math.round(gpsTotalDistM);
 
   const fullTitle = `${type}：${titleInput || '無題の探索ルート'}`;
-  const fullMemo = `【GPS記録】距離: 約${distM}m / 時間: ${minText}\n${memo}`;
+  const fullDesc = `【GPS記録】距離: 約${distM}m / 時間: ${minText}\n${memo}`;
 
   const payload = {
+    category: 'gps_route',
     title: fullTitle,
-    memo: fullMemo,
+    description: fullDesc,
     color: type.includes('通学路') ? '#d32f2f' : (type.includes('歴史') ? '#6a1b9a' : '#ef6c00'),
-    points: JSON.stringify({ isRoute: true, coords: gpsTrackPoints })
+    coordinates: gpsTrackPoints,
+    area_sqm: 0
   };
 
   try {
-    const dbClient = (typeof supabaseClient !== 'undefined') ? supabaseClient : (typeof db !== 'undefined' ? db : null);
-    if (!dbClient) throw new Error('データベース接続が見つかりません');
-    const { error } = await dbClient.from('map_areas').insert([payload]);
+    if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+      throw new Error('データベース接続が見つかりません');
+    }
+    const { error } = await supabaseClient.from('map_areas').insert([payload]);
     if (error) throw error;
     alert('探索ルートを地図に保存・共有しました！');
     discardGpsTrack();
@@ -2139,7 +2140,7 @@ async function saveGpsTrackToCloud() {
     document.getElementById('gpsTrackMemo').value = '';
     renderSavedGpsRoutes();
   } catch (e) {
-    alert('保存中にエラーが発生しました: ' + e.message);
+    alert('保存中にエラーが発生しました: ' + (e.message || ''));
   }
 }
 
