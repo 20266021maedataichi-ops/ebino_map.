@@ -174,6 +174,29 @@
   .tag-suggest-btn:hover { background: #c8e6c9; }
   .inline-hashtag { display: inline-block; background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; border-radius: 10px; padding: 0 6px; margin: 1px 2px; font-size: 0.76rem; font-weight: bold; cursor: pointer; }
   .inline-hashtag:hover { background: #bbdefb; }
+      /* 地域探究ダッシュボード用スタイル */
+  .dashboard-header-btn { background: #ff8f00; color: #fff; border: 1px solid rgba(255,255,255,0.65); padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.15s; }
+  .dashboard-header-btn:hover { background: #ef6c00; }
+  #dashboardModal .modal { max-width: 640px; width: 95%; padding: 18px; }
+  .dash-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e8f5e9; padding-bottom: 10px; margin-bottom: 14px; }
+  .dash-header h2 { margin: 0; font-size: 1.15rem; color: #1b5e20; }
+  .dash-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+  .dash-kpi-card { background: linear-gradient(135deg, #f1f8e9, #e8f5e9); border: 1px solid #c5e1a5; border-radius: 10px; padding: 10px 8px; text-align: center; }
+  .dash-kpi-num { font-size: 1.35rem; font-weight: bold; color: #1b5e20; line-height: 1.2; }
+  .dash-kpi-label { font-size: 0.72rem; color: #555; margin-top: 3px; font-weight: bold; }
+  .dash-section { background: #fafafa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+  .dash-section-title { font-size: 0.85rem; font-weight: bold; color: #333; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+  .dash-bar-row { margin-bottom: 8px; }
+  .dash-bar-row:last-child { margin-bottom: 0; }
+  .dash-bar-meta { display: flex; justify-content: space-between; font-size: 0.78rem; margin-bottom: 3px; color: #333; }
+  .dash-bar-track { width: 100%; height: 10px; background: #e0e0e0; border-radius: 6px; overflow: hidden; }
+  .dash-bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+  .dash-tag-cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dash-tag-badge { background: #e3f2fd; color: #0d47a1; border: 1px solid #90caf9; border-radius: 14px; padding: 4px 10px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
+  .dash-tag-badge:hover { background: #bbdefb; }
+  .dash-rank-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: #fff; border: 1px solid #eee; border-radius: 6px; margin-bottom: 5px; font-size: 0.8rem; cursor: pointer; }
+  .dash-rank-item:hover { background: #f1f8e9; border-color: #81c784; }
+  .dash-rank-badge { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: #2e7d32; color: #fff; font-size: 0.72rem; font-weight: bold; margin-right: 6px; flex-shrink: 0; }
   </style>
     <script>
   (function() {
@@ -212,6 +235,7 @@
   </div>
   <div class="header-actions">
     <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">☀️ 天気読込中</button>
+      <button class="dashboard-header-btn" onclick="openDashboardModal()">📊 探究集計</button>
     <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
     <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
       <button class="tutorial-btn" onclick="openTutorial()">❓ 使い方</button>
@@ -1554,6 +1578,133 @@
     _origRenderMarkers(filter);
     sharedSpots = backup;
   };
+    // --- 地域探究ダッシュボード（自動集計グラフ） ---
+  function openDashboardModal() {
+    renderDashboard();
+    document.getElementById('dashboardModal').style.display = 'flex';
+  }
+
+  function closeDashboardModal() {
+    document.getElementById('dashboardModal').style.display = 'none';
+  }
+
+  function getNearestDistrictName(lat, lng) {
+    // 飯野(32.0305, 130.8707) / 加久藤(32.0425, 130.8155) / 真幸(32.0452, 130.7673) の経度境界で判定
+    if (lng >= 130.843) return '① 飯野エリア';
+    if (lng >= 130.791) return '② 加久藤エリア';
+    return '③ 真幸エリア';
+  }
+
+  function renderDashboard() {
+    const container = document.getElementById('dashboardContent');
+    const spots = sharedSpots || [];
+    const areas = sharedAreas || [];
+    const totalSpots = spots.length;
+
+    // 1. 総リアクション・コメント数 & エリア合計面積
+    let totalEngagement = 0;
+    spots.forEach(s => {
+      const r = s.reactions || {};
+      const rSum = Number(r.like || 0) + Number(r.check || 0) + Number(r.idea || 0) + Number(r.heart || 0);
+      const cSum = Array.isArray(s.comments) ? s.comments.length : 0;
+      totalEngagement += rSum + cSum;
+    });
+    const totalAreaHa = (areas.reduce((acc, a) => acc + Number(a.area_sqm || 0), 0) / 10000).toFixed(2);
+
+    // 2. カテゴリー別集計
+    const catKeys = ['danger', 'local', 'fishing', 'tankyu'];
+    const catCounts = { danger: 0, local: 0, fishing: 0, tankyu: 0 };
+    spots.forEach(s => {
+      if (catCounts[s.category] !== undefined) catCounts[s.category]++;
+      else catCounts.local++;
+    });
+
+    const catBarsHtml = catKeys.map(key => {
+      const meta = catMeta[key];
+      const cnt = catCounts[key];
+      const pct = totalSpots > 0 ? Math.round((cnt / totalSpots) * 100) : 0;
+      return `
+        <div class="dash-bar-row">
+          <div class="dash-bar-meta"><span><strong>${meta.label}</strong></span><span>${cnt}件 (${pct}%)</span></div>
+          <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${pct}%; background:${meta.color};"></div></div>
+        </div>`;
+    }).join('');
+
+    // 3. 地区別集計
+    const distCounts = { '① 飯野エリア': 0, '② 加久藤エリア': 0, '③ 真幸エリア': 0 };
+    spots.forEach(s => {
+      const dName = getNearestDistrictName(Number(s.lat), Number(s.lng));
+      distCounts[dName]++;
+    });
+    const distColors = { '① 飯野エリア': '#2e7d32', '② 加久藤エリア': '#0288d1', '③ 真幸エリア': '#ef6c00' };
+    const distBarsHtml = Object.keys(distCounts).map(dName => {
+      const cnt = distCounts[dName];
+      const pct = totalSpots > 0 ? Math.round((cnt / totalSpots) * 100) : 0;
+      return `
+        <div class="dash-bar-row">
+          <div class="dash-bar-meta"><span><strong>${dName}</strong></span><span>${cnt}件 (${pct}%)</span></div>
+          <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${pct}%; background:${distColors[dName]};"></div></div>
+        </div>`;
+    }).join('');
+
+    // 4. ハッシュタグ集計
+    const tagCounts = {};
+    spots.forEach(s => {
+      if (typeof extractHashtags === 'function') {
+        extractHashtags(`${s.title || ''} ${s.desc || ''}`).forEach(t => {
+          tagCounts[t] = (tagCounts[t] || 0) + 1;
+        });
+      }
+    });
+    const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+    const tagsHtml = topTags.length > 0
+      ? topTags.map(([tag, cnt]) => `<button type="button" class="dash-tag-badge" onclick="closeDashboardModal(); filterByHashtag('${escapeHtml(tag)}')">${escapeHtml(tag)} (${cnt})</button>`).join('')
+      : '<span style="font-size:0.78rem; color:#777;">まだハッシュタグ付きの投稿がありません。</span>';
+
+    // 5. 注目スポット TOP5（リアクション＋コメント数順）
+    const rankedSpots = [...spots].map(s => {
+      const r = s.reactions || {};
+      const score = Number(r.like || 0) + Number(r.check || 0) + Number(r.idea || 0) + Number(r.heart || 0) + (Array.isArray(s.comments) ? s.comments.length : 0);
+      return { ...s, score };
+    }).sort((a, b) => b.score - a.score).slice(0, 5);
+
+    const rankHtml = rankedSpots.length > 0
+      ? rankedSpots.map((s, idx) => {
+          const meta = catMeta[s.category] || catMeta.local;
+          return `
+            <div class="dash-rank-item" onclick="closeDashboardModal(); warpToPin(${s.id})">
+              <div style="display:flex; align-items:center; overflow:hidden;">
+                <span class="dash-rank-badge" style="background:${idx === 0 ? '#ef6c00' : '#2e7d32'};">${idx + 1}</span>
+                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHtml(s.title)}</strong> <span style="font-size:0.7rem; color:#666;">(${meta.label})</span></span>
+              </div>
+              <span style="font-size:0.75rem; font-weight:bold; color:#1565c0; flex-shrink:0; margin-left:6px;">反応 ${s.score}件</span>
+            </div>`;
+        }).join('')
+      : '<span style="font-size:0.78rem; color:#777;">投稿データがありません。</span>';
+
+    container.innerHTML = `
+      <div class="dash-kpi-grid">
+        <div class="dash-kpi-card"><div class="dash-kpi-num">${totalSpots}<span style="font-size:0.8rem;">件</span></div><div class="dash-kpi-label">📍 総スポット数</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num">${areas.length}<span style="font-size:0.8rem;">区域</span></div><div class="dash-kpi-label">📐 調査エリア (${totalAreaHa}ha)</div></div>
+        <div class="dash-kpi-card"><div class="dash-kpi-num">${totalEngagement}<span style="font-size:0.8rem;">回</span></div><div class="dash-kpi-label">💬 共感・追記総数</div></div>
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">📂 カテゴリー別の発見割合</div>
+        ${catBarsHtml}
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">🗺️ エリア別（飯野・加久藤・真幸）の分布</div>
+        ${distBarsHtml}
+      </div>
+      <div class="dash-section">
+        <div class="dash-section-title">🏷️ よく使われているハッシュタグ（タップで絞り込み）</div>
+        <div class="dash-tag-cloud">${tagsHtml}</div>
+      </div>
+      <div class="dash-section" style="margin-bottom:0;">
+        <div class="dash-section-title">🏆 注目スポット TOP5（タップで場所へ移動）</div>
+        ${rankHtml}
+      </div>`;
+  }
 </script>
     <!-- チュートリアルモーダル -->
 <div id="tutorialModal" onclick="if(event.target===this) closeTutorial()">
@@ -1576,6 +1727,18 @@
         </label>
         <button class="tut-skip-link" onclick="closeTutorial()">スキップして閉じる</button>
       </div>
+    </div>
+  </div>
+</div>
+    <div class="modal-overlay" id="dashboardModal" onclick="if(event.target===this) closeDashboardModal()">
+  <div class="modal">
+    <div class="dash-header">
+      <h2>📊 えびの地域探究ダッシュボード（自動集計）</h2>
+      <button class="nav-close-btn" onclick="closeDashboardModal()" title="閉じる">×</button>
+    </div>
+    <div id="dashboardContent"></div>
+    <div class="modal-actions" style="margin-top:10px;">
+      <button class="btn-submit" style="width:100%;" onclick="closeDashboardModal()">マップに戻る</button>
     </div>
   </div>
 </div>
