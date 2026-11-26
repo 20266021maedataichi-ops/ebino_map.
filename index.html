@@ -122,6 +122,21 @@
     .admin-popup-actions { display: flex; gap: 6px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc; }
     .btn-edit-sm { flex: 1; background: #1565c0; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: bold; }
     .btn-del-sm { flex: 1; background: #c62828; color: white; border: none; padding: 5px 8px; border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: bold; }
+      .draw-poly-btn { border: 1px solid #6a1b9a; background: #f3e5f5; color: #4a148c; padding: 6px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: bold; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+    .draw-poly-btn.active { background: #6a1b9a; color: #fff; border-color: #4a148c; }
+    #polyDrawBar { display: none; position: fixed; top: 108px; left: 50%; transform: translateX(-50%); width: 94%; max-width: 480px; background: rgba(255, 255, 255, 0.98); border: 2px solid #6a1b9a; border-radius: 12px; padding: 10px 14px; box-shadow: 0 6px 18px rgba(0,0,0,0.28); z-index: 1005; font-size: 0.82rem; }
+    .poly-bar-title { font-weight: bold; color: #4a148c; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .poly-bar-info { font-size: 0.76rem; color: #444; margin-bottom: 8px; }
+    .poly-bar-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .poly-action-btn { flex: 1; padding: 6px 8px; border: none; border-radius: 6px; font-size: 0.78rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
+    .poly-undo-btn { background: #eceff1; color: #37474f; }
+    .poly-cancel-btn { background: #ffcdd2; color: #b71c1c; }
+    .poly-save-btn { background: #6a1b9a; color: #fff; }
+    .poly-save-btn:disabled { background: #ccc; color: #666; cursor: not-allowed; }
+    .color-palette { display: flex; gap: 8px; margin-top: 4px; }
+    .color-swatch { width: 28px; height: 28px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+    .color-swatch.selected { border-color: #222; transform: scale(1.1); }
+    #map.drawing-cursor { cursor: crosshair !important; }
   </style>
 </head>
 <body>
@@ -154,6 +169,7 @@
   <button class="filter-btn" onclick="filterSpots('local', this)">🏪 ローカル・穴場</button>
   <button class="filter-btn" onclick="filterSpots('fishing', this)">🎣 釣り場</button>
   <button class="filter-btn tankyu-btn" onclick="filterSpots('tankyu', this)">📊 地域探索レイヤー</button>
+    <button class="draw-poly-btn" id="drawPolyBtn" onclick="togglePolyDrawMode()">📐 エリア範囲を描く</button>
   <div class="layer-controls-group">
     <button class="map-layer-btn" id="mapLayerBtn" onclick="toggleBaseMap()">🛰️ 航空写真に切替</button>
     <button class="hazard-toggle-btn" id="hazardBtn" onclick="toggleHazardPanel()">🛡️ 防災・地形・過去写真</button>
@@ -211,7 +227,56 @@
     <div class="hazard-hint">※過去航空写真はズーム15〜17に自動調整して表示します。</div>
   </div>
 </div>
+<div id="polyDrawBar">
+  <div class="poly-bar-title">
+    <span>📐 エリア範囲描画モード</span>
+    <span id="polyStatsBadge" style="background:#f3e5f5; padding:2px 8px; border-radius:10px; font-size:0.75rem;">頂点: 0点</span>
+  </div>
+  <div class="poly-bar-info" id="polyBarHint">地図上をタップして囲みたい範囲の頂点を3点以上打ってください。</div>
+  <div class="poly-bar-actions">
+    <button type="button" class="poly-action-btn poly-undo-btn" onclick="undoPolyPoint()">↩ 1つ戻る</button>
+    <button type="button" class="poly-action-btn poly-cancel-btn" onclick="cancelPolyDraw()">✕ 中止</button>
+    <button type="button" class="poly-action-btn poly-save-btn" id="openPolyModalBtn" onclick="openPolySaveModal()" disabled>✅ この範囲を保存</button>
+  </div>
+</div>
 
+<div class="modal-overlay" id="polySaveModal">
+  <div class="modal">
+    <h2 style="color:#6a1b9a;">📐 エリア範囲メモを保存（全員に共有）</h2>
+    <div style="background:#f3e5f5; padding:8px 12px; border-radius:6px; font-size:0.82rem; color:#4a148c; font-weight:bold; margin-bottom:12px;" id="polyModalAreaSummary">計測面積：計算中...</div>
+    <div class="form-group">
+      <label>カテゴリー</label>
+      <select id="polyCategory">
+        <option value="tankyu">📊 地域探索レイヤー（水田・農地・歴史調査）</option>
+        <option value="danger">⚠️ 危険エリア（浸水・通学路注意区間）</option>
+        <option value="local">🏪 ローカル・散策エリア</option>
+        <option value="fishing">🎣 釣り場・河川ポイント範囲</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>エリア名（タイトル）</label>
+      <input type="text" id="polyTitle" placeholder="例：〇〇地区の耕作放棄地調査エリア" />
+    </div>
+    <div class="form-group">
+      <label>塗りつぶしカラー</label>
+      <div class="color-palette" id="polyColorPalette">
+        <div class="color-swatch selected" data-color="#1565c0" style="background:#1565c0;" onclick="selectPolyColor(this)"></div>
+        <div class="color-swatch" data-color="#d32f2f" style="background:#d32f2f;" onclick="selectPolyColor(this)"></div>
+        <div class="color-swatch" data-color="#2e7d32" style="background:#2e7d32;" onclick="selectPolyColor(this)"></div>
+        <div class="color-swatch" data-color="#ef6c00" style="background:#ef6c00;" onclick="selectPolyColor(this)"></div>
+        <div class="color-swatch" data-color="#6a1b9a" style="background:#6a1b9a;" onclick="selectPolyColor(this)"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>調査メモ・解説</label>
+      <textarea id="polyDesc" rows="3" placeholder="例：1974年の航空写真と比較して住宅地に変化したエリア"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePolySaveModal()">戻る</button>
+      <button class="btn-submit" style="background:#6a1b9a;" id="savePolyBtn" onclick="saveMapArea()">マップに保存する</button>
+    </div>
+  </div>
+</div>
 <div id="map"></div>
 
 <div id="nav-panel">
@@ -453,6 +518,131 @@
   let hazardOpacity = 0.65;
   let isPhotoMode = false;
   stdTileLayer.addTo(map);
+    let isDrawingPoly = false, polyPoints = [], sharedAreas = [], selectedPolyColor = '#1565c0';
+  let polyTempLayer = L.layerGroup().addTo(map);
+  let savedAreasLayer = L.layerGroup().addTo(map);
+
+  function togglePolyDrawMode() {
+    if (isDrawingPoly) { cancelPolyDraw(); return; }
+    isDrawingPoly = true; polyPoints = []; polyTempLayer.clearLayers();
+    document.getElementById('drawPolyBtn').classList.add('active');
+    document.getElementById('polyDrawBar').style.display = 'block';
+    document.getElementById('map').classList.add('drawing-cursor');
+    document.getElementById('hazardPanel').style.display = 'none';
+    document.getElementById('weatherPanel').style.display = 'none';
+    updatePolyDrawUI();
+  }
+
+  function cancelPolyDraw() {
+    isDrawingPoly = false; polyPoints = []; polyTempLayer.clearLayers();
+    document.getElementById('drawPolyBtn').classList.remove('active');
+    document.getElementById('polyDrawBar').style.display = 'none';
+    document.getElementById('map').classList.remove('drawing-cursor');
+  }
+
+  function undoPolyPoint() {
+    if (polyPoints.length > 0) { polyPoints.pop(); redrawTempPoly(); updatePolyDrawUI(); }
+  }
+
+  function computeGeodesicAreaSqm(latlngs) {
+    if (!latlngs || latlngs.length < 3) return 0;
+    const rad = Math.PI / 180, R = 6378137;
+    let area = 0;
+    for (let i = 0; i < latlngs.length; i++) {
+      const p1 = latlngs[i], p2 = latlngs[(i + 1) % latlngs.length];
+      area += (p2[1] - p1[1]) * rad * (2 + Math.sin(p1[0] * rad) + Math.sin(p2[0] * rad));
+    }
+    return Math.abs(area * R * R / 2);
+  }
+
+  function formatAreaText(sqm) {
+    return sqm >= 10000
+      ? `約 ${(sqm / 10000).toFixed(2)} ha（${Math.round(sqm).toLocaleString()} ㎡）`
+      : `約 ${Math.round(sqm).toLocaleString()} ㎡`;
+  }
+
+  function redrawTempPoly() {
+    polyTempLayer.clearLayers();
+    polyPoints.forEach((pt, idx) => {
+      L.circleMarker(pt, { radius: 6, color: '#fff', weight: 2, fillColor: idx === 0 ? '#ef6c00' : '#6a1b9a', fillOpacity: 1 }).addTo(polyTempLayer);
+    });
+    if (polyPoints.length === 2) L.polyline(polyPoints, { color: '#6a1b9a', weight: 3, dashArray: '6, 6' }).addTo(polyTempLayer);
+    else if (polyPoints.length >= 3) L.polygon(polyPoints, { color: '#6a1b9a', weight: 3, fillColor: '#9c27b0', fillOpacity: 0.28 }).addTo(polyTempLayer);
+  }
+
+  function updatePolyDrawUI() {
+    const count = polyPoints.length, saveBtn = document.getElementById('openPolyModalBtn');
+    const badge = document.getElementById('polyStatsBadge'), hint = document.getElementById('polyBarHint');
+    if (count < 3) {
+      badge.textContent = `頂点: ${count}点`;
+      hint.textContent = `地図上をタップして頂点を打ってください（あと${3 - count}点で範囲が完成します）。`;
+      saveBtn.disabled = true;
+    } else {
+      badge.textContent = `頂点: ${count}点 / ${formatAreaText(computeGeodesicAreaSqm(polyPoints))}`;
+      hint.textContent = `さらに頂点を追加するか、「✅ この範囲を保存」を押してください。`;
+      saveBtn.disabled = false;
+    }
+  }
+
+  function openPolySaveModal() {
+    if (polyPoints.length < 3) return;
+    document.getElementById('polyModalAreaSummary').textContent = `📐 計測面積：${formatAreaText(computeGeodesicAreaSqm(polyPoints))}（頂点数: ${polyPoints.length}）`;
+    document.getElementById('polySaveModal').style.display = 'flex';
+  }
+  function closePolySaveModal() { document.getElementById('polySaveModal').style.display = 'none'; }
+
+  function selectPolyColor(el) {
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected'); selectedPolyColor = el.dataset.color;
+  }
+
+  async function saveMapArea() {
+    if (!supabaseClient) return alert('Supabaseの接続設定が未完了です。');
+    const category = document.getElementById('polyCategory').value;
+    const title = document.getElementById('polyTitle').value.trim();
+    const desc = document.getElementById('polyDesc').value.trim();
+    const btn = document.getElementById('savePolyBtn');
+    if (!title) return alert('エリア名（タイトル）を入力してください。');
+    btn.disabled = true; btn.textContent = '保存中...';
+    try {
+      const { error } = await supabaseClient.from('map_areas').insert([{
+        category, title, description: desc, color: selectedPolyColor, coordinates: polyPoints, area_sqm: computeGeodesicAreaSqm(polyPoints)
+      }]);
+      if (error) throw error;
+      document.getElementById('polyTitle').value = ''; document.getElementById('polyDesc').value = '';
+      closePolySaveModal(); cancelPolyDraw(); await loadMapAreas();
+      alert('エリア範囲メモを保存し、全員に共有しました！');
+    } catch (err) { alert('保存に失敗しました：' + (err.message || '')); }
+    finally { btn.disabled = false; btn.textContent = 'マップに保存する'; }
+  }
+
+  async function loadMapAreas() {
+    if (!supabaseClient) return;
+    const { data, error } = await supabaseClient.from('map_areas').select('*').order('created_at', { ascending: false });
+    if (!error && data) { sharedAreas = data; renderMapAreas(currentFilter); }
+  }
+
+  function renderMapAreas(filter = 'all') {
+    savedAreasLayer.clearLayers();
+    sharedAreas.forEach(area => {
+      if (filter !== 'all' && area.category !== filter) return;
+      if (!Array.isArray(area.coordinates) || area.coordinates.length < 3) return;
+      const meta = catMeta[area.category] || catMeta.tankyu, color = area.color || '#1565c0';
+      const adminDelBtn = adminPassword ? `<div class="admin-popup-actions"><button class="btn-del-sm" onclick="deleteMapArea(${area.id})">🗑️ この範囲を削除</button></div>` : '';
+      L.polygon(area.coordinates, { color, weight: 3, fillColor: color, fillOpacity: 0.25 })
+        .bindPopup(`<div style="min-width:220px;"><span class="badge" style="background:${color};">📐 エリア範囲（${meta.label}）</span><h4 style="margin:4px 0;">${escapeHtml(area.title)}</h4><div style="font-size:0.78rem; font-weight:bold; color:#4a148c; margin-bottom:4px;">面積: ${formatAreaText(Number(area.area_sqm || 0))}</div><p style="font-size:0.82rem; color:#444;">${escapeHtml(area.description || 'メモなし')}</p>${adminDelBtn}</div>`)
+        .addTo(savedAreasLayer);
+    });
+  }
+
+  async function deleteMapArea(id) {
+    if (!confirm('このエリア範囲メモを削除しますか？')) return;
+    try {
+      const { error } = await supabaseClient.rpc('admin_delete_map_area', { admin_pass: adminPassword, target_id: id });
+      if (error) throw error;
+      await loadMapAreas(); alert('エリア範囲を削除しました。');
+    } catch (err) { alert('削除に失敗しました：' + (err.message || '')); }
+  }
 
   function getWeatherMeta(code) {
     const c = Number(code);
@@ -1093,9 +1283,14 @@
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     renderMarkers(cat);
+      renderMapAreas(cat);
   }
 
   map.on('click', (e) => {
+      if (isDrawingPoly) {
+      polyPoints.push([Number(e.latlng.lat.toFixed(6)), Number(e.latlng.lng.toFixed(6))]);
+      redrawTempPoly(); updatePolyDrawUI(); return;
+    }
     document.getElementById('spotLatLng').value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
   });
 
@@ -1113,6 +1308,7 @@
   function closeModal() { document.getElementById('postModal').style.display = 'none'; }
 
   loadSpots();
+    loadMapAreas();
   fetchEbinoWeather(currentBaseLocation.lat, currentBaseLocation.lng, currentBaseLocation.name);
 </script>
 </body>
