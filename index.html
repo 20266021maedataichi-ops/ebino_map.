@@ -1849,44 +1849,97 @@ const EBINO_SHELTERS = [
     }).join('');
   }
 
-  function drawEvacRouteTo(shelterId, withFloodHazard) {
-    const sh = EBINO_SHELTERS.find(s => s.id === shelterId);
-    if (!sh || !lastEvacOrigin) return;
+  async function drawEvacRouteTo(shelterId, withFloodHazard) {
+  const sh = EBINO_SHELTERS.find(s => s.id === shelterId);
+  if (!sh || !lastEvacOrigin) return;
 
-    evacLayer.clearLayers();
-    const originPt = [lastEvacOrigin.lat, lastEvacOrigin.lng];
-    const destPt = [sh.lat, sh.lng];
+  evacLayer.clearLayers();
+  const originPt = [lastEvacOrigin.lat, lastEvacOrigin.lng];
+  const destPt = [sh.lat, sh.lng];
 
-    // 出発地・避難所マーカーと避難ルート線を描画
-    L.circleMarker(originPt, { radius: 8, color: '#fff', weight: 2, fillColor: '#0288d1', fillOpacity: 1 })
-      .bindPopup(`<strong>出発地：${escapeHtml(lastEvacOrigin.label)}</strong>`).addTo(evacLayer);
+  // 出発地と避難所マーカーを描画
+  L.circleMarker(originPt, { radius: 8, color: '#fff', weight: 2, fillColor: '#0288d1', fillOpacity: 1 })
+    .bindPopup(`<strong>出発地：${escapeHtml(lastEvacOrigin.label)}</strong>`).addTo(evacLayer);
 
-    const destMarker = L.circleMarker(destPt, { radius: 10, color: '#fff', weight: 3, fillColor: '#2e7d32', fillOpacity: 1 })
-      .bindPopup(`<strong>🏃 避難先：${escapeHtml(sh.name)}</strong><br><span style="font-size:0.78rem;">${escapeHtml(sh.note)}</span>`)
-      .addTo(evacLayer);
+  const destMarker = L.circleMarker(destPt, { radius: 10, color: '#fff', weight: 3, fillColor: '#2e7d32', fillOpacity: 1 })
+    .addTo(evacLayer);
 
-    L.polyline([originPt, destPt], { color: '#d32f2f', weight: 5, dashArray: '10, 8', opacity: 0.9 }).addTo(evacLayer);
+  // OSRM（道路ルーティングAPI）から実際の道路に沿った経路を取得
+  let routeCoords = [originPt, destPt];
+  let roadDistM = Math.round(calcDistanceMeters(originPt[0], originPt[1], destPt[0], destPt[1]));
+  let isRoadRoute = false;
 
-    // 経路周辺の危険箇所ピンを赤い警告サークルで強調表示
-    const dangerSpots = (sharedSpots || []).filter(s => s.category === 'danger');
-    dangerSpots.forEach(ds => {
-      if (distPointToSegmentMeters(Number(ds.lat), Number(ds.lng), lastEvacOrigin.lat, lastEvacOrigin.lng, sh.lat, sh.lng) <= 180) {
-        L.circle([Number(ds.lat), Number(ds.lng)], {
-          radius: 90, color: '#d32f2f', weight: 2, fillColor: '#ff1744', fillOpacity: 0.22
-        }).bindPopup(`⚠️ <strong>避難経路上の注意箇所：${escapeHtml(ds.title)}</strong>`).addTo(evacLayer);
+  try {
+    const osrmUrl = `https://router.project-osrm.org/route/v1/foot/${originPt[1]},${originPt[0]};${destPt[1]},${destPt[0]}?overview=full&geometries=geojson`;
+    const res = await fetch(osrmUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        routeCoords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+        roadDistM = Math.round(route.distance);
+        isRoadRoute = true;
       }
-    });
-
-    if (withFloodHazard) {
-      const floodRadio = document.querySelector('input[name="hazardOverlay"][value="flood"]');
-      if (floodRadio) floodRadio.checked = true;
-      setHazardOverlay('flood');
     }
-
-    closeEvacModal();
-    map.fitBounds(L.latLngBounds([originPt, destPt]), { padding: [60, 60] });
-    setTimeout(() => destMarker.openPopup(), 300);
+  } catch (e) {
+    console.warn('道路ルート取得に失敗したため直線ルートで代替します:', e);
   }
+
+  const walkMin = Math.max(1, Math.round(roadDistM / 80));
+
+  // 実際の道路ルート上の危険箇所ピン（半径120m以内）を赤い警告サークルで強調表示
+  const dangerSpots = (sharedSpots || []).filter(s => s.category === 'danger');
+  const nearDangers = [];
+  dangerSpots.forEach(ds => {
+    const dLat = Number(ds.lat), dLng = Number(ds.lng);
+    if (isNaN(dLat) || isNaN(dLng)) return;
+    let minD = Infinity;
+    for (let i = 0; i < routeCoords.length; i++) {
+      const d = calcDistanceMeters(routeCoords[i][0], routeCoords[i][1], dLat, dLng);
+      if (d < minD) minD = d;
+    }
+    if (minD <= 120) {
+      nearDangers.push({ spot: ds, dist: Math.round(minD) });
+      L.circle([dLat, dLng], {
+        radius: 90, color: '#d32f2f', weight: 2, fillColor: '#ff1744', fillOpacity: 0.22
+      }).bindPopup(`⚠️ <strong>避難道路沿いの注意箇所：${escapeHtml(ds.title)}</strong><br><span style="font-size:0.78rem;">道路から約${Math.round(minD)}m</span>`).addTo(evacLayer);
+    }
+  });
+
+  // 危険ピンがあれば赤線、なければ緑線で道路ルートを描画（白縁取り付き）
+  const hasDanger = nearDangers.length > 0;
+  const lineColor = hasDanger ? '#d32f2f' : '#2e7d32';
+
+  L.polyline(routeCoords, { color: '#ffffff', weight: 8, opacity: 0.85, lineJoin: 'round' }).addTo(evacLayer);
+  L.polyline(routeCoords, {
+    color: lineColor,
+    weight: 5,
+    opacity: 0.92,
+    dashArray: isRoadRoute ? null : '10, 8',
+    lineJoin: 'round'
+  }).addTo(evacLayer);
+
+  const dangerSummary = hasDanger
+    ? `<br><span style="color:#d32f2f;font-weight:bold;">⚠️ 経路周辺に危険ピン ${nearDangers.length}件あり</span>`
+    : `<br><span style="color:#2e7d32;font-weight:bold;">✅ 経路周辺に危険ピンなし</span>`;
+
+  destMarker.bindPopup(
+    `<strong>🏃 避難先：${escapeHtml(sh.name)}</strong><br>` +
+    `<span style="font-size:0.78rem;">${escapeHtml(sh.note)}</span><br>` +
+    `${isRoadRoute ? '🛣️ 道路沿い距離' : '📏 直線距離'}：約<b>${roadDistM}m</b>（徒歩約<b>${walkMin}分</b>）` +
+    dangerSummary
+  );
+
+  if (withFloodHazard) {
+    const floodRadio = document.querySelector('input[name="hazardOverlay"][value="flood"]');
+    if (floodRadio) floodRadio.checked = true;
+    setHazardOverlay('flood');
+  }
+
+  closeEvacModal();
+  map.fitBounds(L.latLngBounds(routeCoords), { padding: [60, 60] });
+  setTimeout(() => destMarker.openPopup(), 300);
+}
 </script>
     <!-- チュートリアルモーダル -->
 <div id="tutorialModal" onclick="if(event.target===this) closeTutorial()">
