@@ -213,6 +213,20 @@
   .evac-actions { display: flex; gap: 6px; margin-top: 8px; }
   .evac-route-btn { flex: 2; background: #2e7d32; color: #fff; border: none; border-radius: 6px; padding: 6px 8px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
   .evac-hazard-btn { flex: 1; background: #d84315; color: #fff; border: none; border-radius: 6px; padding: 6px 8px; font-size: 0.76rem; font-weight: bold; cursor: pointer; }
+      /* GPS軌跡記録バー＆モーダル */
+.gps-hud {
+  display: none; position: fixed; bottom: 74px; left: 50%; transform: translateX(-50%);
+  z-index: 1500; background: rgba(27, 94, 32, 0.95); color: #fff;
+  padding: 10px 14px; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  width: 92%; max-width: 440px; backdrop-filter: blur(4px);
+}
+.gps-hud-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.gps-pulse { display: inline-block; width: 10px; height: 10px; background: #ff5252; border-radius: 50%; margin-right: 6px; animation: gpsBlink 1.2s infinite; }
+@keyframes gpsBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+.gps-stats { display: flex; gap: 10px; font-size: 0.82rem; background: rgba(0,0,0,0.22); padding: 6px 10px; border-radius: 8px; margin-bottom: 8px; justify-content: space-around; }
+.gps-hud-btns { display: flex; gap: 8px; }
+.gps-stop-btn { flex: 2; background: #ff9800; color: #fff; border: none; border-radius: 8px; padding: 7px; font-weight: bold; cursor: pointer; font-size: 0.82rem; }
+.gps-cancel-btn { flex: 1; background: rgba(255,255,255,0.2); color: #fff; border: none; border-radius: 8px; padding: 7px; cursor: pointer; font-size: 0.78rem; }
   </style>
     <script>
   (function() {
@@ -253,6 +267,7 @@
     <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">☀️ 天気読込中</button>
       <button class="dashboard-header-btn" onclick="openDashboardModal()">📊 探究集計</button>
       <button class="evac-header-btn" onclick="openEvacModal()">🏃 避難模擬</button>
+      <button type="button" class="nav-btn" onclick="startGpsTrackRecording()" style="background:#ef6c00;color:#fff;">🧭 軌跡記録</button>
     <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
     <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
       <button class="tutorial-btn" onclick="openTutorial()">❓ 使い方</button>
@@ -1940,6 +1955,190 @@ const EBINO_SHELTERS = [
   map.fitBounds(L.latLngBounds(routeCoords), { padding: [60, 60] });
   setTimeout(() => destMarker.openPopup(), 300);
 }
+    // --- 探索ルート・GPS軌跡ログ記録 ---
+let gpsWatchId = null;
+let gpsTimerId = null;
+let gpsStartTime = null;
+let gpsTrackPoints = [];
+let gpsTotalDistM = 0;
+let gpsLivePolyline = null;
+let savedRoutesLayer = L.layerGroup().addTo(map);
+
+function startGpsTrackRecording() {
+  if (!navigator.geolocation) {
+    alert('お使いの端末・ブラウザはGPS位置情報に対応していません。');
+    return;
+  }
+  if (gpsWatchId !== null) {
+    alert('すでにGPS軌跡を記録中です。');
+    return;
+  }
+
+  gpsTrackPoints = [];
+  gpsTotalDistM = 0;
+  gpsStartTime = Date.now();
+  if (gpsLivePolyline) map.removeLayer(gpsLivePolyline);
+  gpsLivePolyline = L.polyline([], { color: '#ef6c00', weight: 6, opacity: 0.9 }).addTo(map);
+
+  document.getElementById('gpsTrackHud').style.display = 'block';
+  updateGpsHudStats();
+
+  gpsTimerId = setInterval(updateGpsHudStats, 1000);
+
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy || 0);
+      document.getElementById('gpsAccuracyText').textContent = `精度: 約${acc}m`;
+
+      if (acc > 100 && gpsTrackPoints.length > 0) return;
+
+      const newPt = [lat, lng];
+      if (gpsTrackPoints.length > 0) {
+        const lastPt = gpsTrackPoints[gpsTrackPoints.length - 1];
+        const stepM = calcDistanceMeters(lastPt[0], lastPt[1], lat, lng);
+        if (stepM < 3) return;
+        gpsTotalDistM += stepM;
+      } else {
+        map.setView(newPt, 17);
+      }
+
+      gpsTrackPoints.push(newPt);
+      gpsLivePolyline.setLatLngs(gpsTrackPoints);
+      map.panTo(newPt);
+      updateGpsHudStats();
+    },
+    (err) => {
+      alert('GPSの取得に失敗しました。スマホの位置情報（GPS）がオンになっているか確認してください。');
+      cancelGpsTrackRecording();
+    },
+    { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 }
+  );
+}
+
+function updateGpsHudStats() {
+  const sec = gpsStartTime ? Math.floor((Date.now() - gpsStartTime) / 1000) : 0;
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(sec % 60).padStart(2, '0');
+  document.getElementById('gpsDistDisplay').textContent = `${Math.round(gpsTotalDistM)} m`;
+  document.getElementById('gpsTimeDisplay').textContent = `${mm}:${ss}`;
+  document.getElementById('gpsPtsDisplay').textContent = `${gpsTrackPoints.length}`;
+}
+
+function stopGpsWatchers() {
+  if (gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  if (gpsTimerId !== null) {
+    clearInterval(gpsTimerId);
+    gpsTimerId = null;
+  }
+  document.getElementById('gpsTrackHud').style.display = 'none';
+}
+
+function cancelGpsTrackRecording() {
+  stopGpsWatchers();
+  if (gpsLivePolyline) {
+    map.removeLayer(gpsLivePolyline);
+    gpsLivePolyline = null;
+  }
+  gpsTrackPoints = [];
+}
+
+function openSaveGpsTrackModal() {
+  if (gpsTrackPoints.length < 2) {
+    if (gpsTrackPoints.length === 1) {
+      gpsTrackPoints.push([gpsTrackPoints[0][0] + 0.0001, gpsTrackPoints[0][1] + 0.0001]);
+    } else {
+      alert('移動軌跡がまだ十分に記録されていません（2地点以上歩いてから終了してください）。');
+      return;
+    }
+  }
+  const sec = gpsStartTime ? Math.floor((Date.now() - gpsStartTime) / 1000) : 0;
+  const minText = `${Math.floor(sec / 60)}分${sec % 60}秒`;
+  stopGpsWatchers();
+  document.getElementById('gpsSaveSummary').textContent =
+    `📏 記録距離：約${Math.round(gpsTotalDistM)}m ｜ ⏱️ 所要時間：${minText}（${gpsTrackPoints.length}地点）`;
+  document.getElementById('gpsSaveModal').style.display = 'flex';
+}
+
+function closeGpsSaveModal() {
+  document.getElementById('gpsSaveModal').style.display = 'none';
+}
+
+function discardGpsTrack() {
+  if (gpsLivePolyline) {
+    map.removeLayer(gpsLivePolyline);
+    gpsLivePolyline = null;
+  }
+  gpsTrackPoints = [];
+  closeGpsSaveModal();
+}
+
+async function renderSavedGpsRoutes() {
+  try {
+    const dbClient = (typeof supabaseClient !== 'undefined') ? supabaseClient : (typeof db !== 'undefined' ? db : null);
+    if (!dbClient) return;
+    const { data, error } = await dbClient.from('map_areas').select('*');
+    if (error || !data) return;
+
+    savedRoutesLayer.clearLayers();
+    data.forEach(item => {
+      try {
+        const parsed = typeof item.points === 'string' ? JSON.parse(item.points) : item.points;
+        if (parsed && parsed.isRoute && Array.isArray(parsed.coords) && parsed.coords.length >= 2) {
+          const lineColor = item.color || '#ef6c00';
+          L.polyline(parsed.coords, { color: '#ffffff', weight: 8, opacity: 0.8 }).addTo(savedRoutesLayer);
+          const routeLine = L.polyline(parsed.coords, { color: lineColor, weight: 5, opacity: 0.92 }).addTo(savedRoutesLayer);
+          routeLine.bindPopup(
+            `<strong>${escapeHtml(item.title || '探索ルート')}</strong><br>` +
+            `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.memo || '')}</div>`
+          );
+        }
+      } catch (e) {}
+    });
+  } catch (e) {
+    console.warn('保存ルートの読み込みスキップ:', e);
+  }
+}
+
+async function saveGpsTrackToCloud() {
+  const type = document.getElementById('gpsTrackType').value;
+  const titleInput = document.getElementById('gpsTrackTitle').value.trim();
+  const memo = document.getElementById('gpsTrackMemo').value.trim();
+  const sec = gpsStartTime ? Math.floor((Date.now() - gpsStartTime) / 1000) : 0;
+  const minText = `${Math.floor(sec / 60)}分${sec % 60}秒`;
+  const distM = Math.round(gpsTotalDistM);
+
+  const fullTitle = `${type}：${titleInput || '無題の探索ルート'}`;
+  const fullMemo = `【GPS記録】距離: 約${distM}m / 時間: ${minText}\n${memo}`;
+
+  const payload = {
+    title: fullTitle,
+    memo: fullMemo,
+    color: type.includes('通学路') ? '#d32f2f' : (type.includes('歴史') ? '#6a1b9a' : '#ef6c00'),
+    points: JSON.stringify({ isRoute: true, coords: gpsTrackPoints })
+  };
+
+  try {
+    const dbClient = (typeof supabaseClient !== 'undefined') ? supabaseClient : (typeof db !== 'undefined' ? db : null);
+    if (!dbClient) throw new Error('データベース接続が見つかりません');
+    const { error } = await dbClient.from('map_areas').insert([payload]);
+    if (error) throw error;
+    alert('探索ルートを地図に保存・共有しました！');
+    discardGpsTrack();
+    document.getElementById('gpsTrackTitle').value = '';
+    document.getElementById('gpsTrackMemo').value = '';
+    renderSavedGpsRoutes();
+  } catch (e) {
+    alert('保存中にエラーが発生しました: ' + e.message);
+  }
+}
+
+// 起動時に保存済み探索ルートも自動表示
+setTimeout(renderSavedGpsRoutes, 1500);
 </script>
     <!-- チュートリアルモーダル -->
 <div id="tutorialModal" onclick="if(event.target===this) closeTutorial()">
@@ -1993,6 +2192,54 @@ const EBINO_SHELTERS = [
     <div class="modal-actions" style="margin-top:10px;">
       <button type="button" class="btn-cancel" onclick="clearEvacLayer()">ルート消去</button>
       <button type="button" class="btn-submit" style="background:#c62828;" onclick="closeEvacModal()">閉じる</button>
+    </div>
+  </div>
+</div>
+    <!-- GPS軌跡記録中のフローティングHUD -->
+<div id="gpsTrackHud" class="gps-hud">
+  <div class="gps-hud-top">
+    <span style="font-weight:bold;font-size:0.85rem;"><span class="gps-pulse"></span>探索ルートGPS記録中…</span>
+    <span id="gpsAccuracyText" style="font-size:0.72rem;opacity:0.85;">GPS測位中</span>
+  </div>
+  <div class="gps-stats">
+    <div>距離: <strong id="gpsDistDisplay">0 m</strong></div>
+    <div>時間: <strong id="gpsTimeDisplay">00:00</strong></div>
+    <div>地点数: <strong id="gpsPtsDisplay">0</strong></div>
+  </div>
+  <div class="gps-hud-btns">
+    <button type="button" class="gps-stop-btn" onclick="openSaveGpsTrackModal()">⏹️ 記録終了してルート保存</button>
+    <button type="button" class="gps-cancel-btn" onclick="cancelGpsTrackRecording()">中止</button>
+  </div>
+</div>
+
+<!-- GPS軌跡保存モーダル -->
+<div class="modal-overlay" id="gpsSaveModal" onclick="if(event.target===this) closeGpsSaveModal()">
+  <div class="modal">
+    <div class="dash-header" style="border-bottom-color:#ffe0b2;">
+      <h2 style="color:#e65100;">🧭 探索ルート・GPS軌跡の保存</h2>
+      <button class="nav-close-btn" onclick="closeGpsSaveModal()">×</button>
+    </div>
+    <p id="gpsSaveSummary" style="font-size:0.8rem;background:#fff3e0;color:#e65100;padding:8px;border-radius:8px;font-weight:bold;margin-bottom:10px;"></p>
+    <div style="margin-bottom:8px;">
+      <label style="font-size:0.78rem;font-weight:bold;display:block;margin-bottom:4px;">コース種別</label>
+      <select id="gpsTrackType" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:0.85rem;">
+        <option value="🚸 通学路安全点検ルート">🚸 通学路安全点検ルート</option>
+        <option value="🏯 歴史街道ウォークコース">🏯 歴史街道ウォークコース</option>
+        <option value="🌿 自然・地形フィールドワーク">🌿 自然・地形フィールドワーク</option>
+        <option value="🏃 防災・避難路実地検証">🏃 防災・避難路実地検証</option>
+      </select>
+    </div>
+    <div style="margin-bottom:8px;">
+      <label style="font-size:0.78rem;font-weight:bold;display:block;margin-bottom:4px;">ルート名（例：飯野小〜加久藤方面 通学路点検）</label>
+      <input type="text" id="gpsTrackTitle" placeholder="ルート名を入力" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:0.85rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:0.78rem;font-weight:bold;display:block;margin-bottom:4px;">歩いた感想・危険ポイント・発見メモ</label>
+      <textarea id="gpsTrackMemo" rows="3" placeholder="例：〇〇交差点の歩道が狭い。石碑あり。" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:8px;font-size:0.85rem;box-sizing:border-box;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="discardGpsTrack()">破棄</button>
+      <button type="button" class="btn-submit" style="background:#ef6c00;" onclick="saveGpsTrackToCloud()">地図に保存・共有する</button>
     </div>
   </div>
 </div>
