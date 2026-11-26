@@ -324,6 +324,43 @@
 
     .popup-img { width: 100%; max-height: 140px; object-fit: cover; border-radius: 6px; margin-top: 6px; }
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; color: white; margin-bottom: 4px; }
+
+    /* リアクションボタンバー */
+    .reaction-bar {
+      display: flex;
+      gap: 4px;
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid #eee;
+      flex-wrap: wrap;
+    }
+    .reaction-btn {
+      flex: 1;
+      min-width: 46px;
+      background: #f5f5f5;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+      padding: 4px 6px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: 0.15s;
+      color: #333;
+    }
+    .reaction-btn:hover {
+      background: #e8f5e9;
+      border-color: #81c784;
+    }
+    .reaction-btn.reacted {
+      background: #e8f5e9;
+      border-color: #2e7d32;
+      color: #1b5e20;
+      font-weight: bold;
+    }
+
     .btn-nav-sm {
       display: block;
       width: 100%;
@@ -673,6 +710,111 @@
     tankyu:  { label: '📊 地域探索レイヤー', color: '#1565c0' }
   };
 
+  // リアクション定義と端末ごとの押下履歴管理（localStorage）
+  const reactionTypes = [
+    { key: 'like',  emoji: '👍', title: 'いいね！' },
+    { key: 'check', emoji: '⚠️', title: '確認した！' },
+    { key: 'idea',  emoji: '💡', title: '役立つ！' },
+    { key: 'heart', emoji: '❤️', title: '応援！' }
+  ];
+  const USER_REACTIONS_KEY = 'ebino_map_user_reactions_v1';
+  let userReactions = {};
+  try {
+    userReactions = JSON.parse(localStorage.getItem(USER_REACTIONS_KEY) || '{}');
+  } catch (e) {
+    userReactions = {};
+  }
+
+  function hasReacted(spotId, key) {
+    return Boolean(userReactions[`${spotId}_${key}`]);
+  }
+
+  function setReacted(spotId, key, val) {
+    if (val) {
+      userReactions[`${spotId}_${key}`] = true;
+    } else {
+      delete userReactions[`${spotId}_${key}`];
+    }
+    try {
+      localStorage.setItem(USER_REACTIONS_KEY, JSON.stringify(userReactions));
+    } catch (e) {}
+  }
+
+  function buildPopupHtml(spot) {
+    const meta = catMeta[spot.category] || catMeta.local;
+    const imgHtml = spot.img ? `<img src="${spot.img}" class="popup-img" />` : '';
+    const r = spot.reactions || { like: 0, check: 0, idea: 0, heart: 0 };
+
+    const reactionButtonsHtml = reactionTypes.map(rt => {
+      const count = Number(r[rt.key] || 0);
+      const activeClass = hasReacted(spot.id, rt.key) ? 'reacted' : '';
+      return `<button type="button" class="reaction-btn ${activeClass}" title="${rt.title}" onclick="toggleReaction(${spot.id}, '${rt.key}')">${rt.emoji} <span>${count}</span></button>`;
+    }).join('');
+
+    const adminControls = adminPassword ? `
+      <div class="admin-popup-actions">
+        <button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ 編集</button>
+        <button class="btn-del-sm" onclick="deleteSpot(${spot.id})">🗑️ 削除</button>
+      </div>
+    ` : '';
+
+    return `
+      <div style="min-width:220px;">
+        <span class="badge" style="background:${meta.color};">${meta.label}</span>
+        <h4 style="margin:4px 0; font-size:0.95rem;">${escapeHtml(spot.title)}</h4>
+        <p style="font-size:0.82rem; color:#444; line-height:1.4;">${escapeHtml(spot.desc)}</p>
+        ${imgHtml}
+        <div class="reaction-bar">${reactionButtonsHtml}</div>
+        <button class="btn-nav-sm" onclick="startNavigationById(${spot.id})">🧭 ここへナビ</button>
+        ${adminControls}
+      </div>
+    `;
+  }
+
+  async function toggleReaction(spotId, key) {
+    if (!supabaseClient) return;
+    const target = sharedSpots.find(s => s.id === spotId);
+    if (!target) return;
+
+    const already = hasReacted(spotId, key);
+    const delta = already ? -1 : 1;
+
+    // 画面上を即座に更新（体感速度向上）
+    if (!target.reactions) {
+      target.reactions = { like: 0, check: 0, idea: 0, heart: 0 };
+    }
+    target.reactions[key] = Math.max(0, Number(target.reactions[key] || 0) + delta);
+    setReacted(spotId, key, !already);
+
+    if (markerMap[spotId]) {
+      markerMap[spotId].setPopupContent(buildPopupHtml(target));
+    }
+
+    try {
+      const { data, error } = await supabaseClient.rpc('toggle_spot_reaction', {
+        target_id: spotId,
+        reaction_key: key,
+        delta: delta
+      });
+      if (error) throw error;
+      if (data) {
+        target.reactions = data;
+        if (markerMap[spotId]) {
+          markerMap[spotId].setPopupContent(buildPopupHtml(target));
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      // 失敗時はロールバックして通知
+      target.reactions[key] = Math.max(0, Number(target.reactions[key] || 0) - delta);
+      setReacted(spotId, key, already);
+      if (markerMap[spotId]) {
+        markerMap[spotId].setPopupContent(buildPopupHtml(target));
+      }
+      alert('リアクションの送信に失敗しました（SupabaseのSQL設定が未実行の可能性があります）：' + (err.message || ''));
+    }
+  }
+
   if (SUPABASE_URL.startsWith("http") && SUPABASE_ANON_KEY) {
     supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     supabaseClient
@@ -824,6 +966,15 @@
       renderMarkers(currentFilter);
       return;
     }
+
+    // 現在開いている吹き出しがあればIDを覚えておく
+    let openedSpotId = null;
+    Object.keys(markerMap).forEach(id => {
+      if (markerMap[id] && markerMap[id].isPopupOpen()) {
+        openedSpotId = Number(id);
+      }
+    });
+
     const { data, error } = await supabaseClient
       .from('spots')
       .select('*')
@@ -836,6 +987,10 @@
       sharedSpots = data || [];
       document.getElementById('syncStatus').textContent = `🟢 リアルタイム共有中 (${sharedSpots.length}件)`;
       renderMarkers(currentFilter);
+
+      if (openedSpotId && markerMap[openedSpotId]) {
+        markerMap[openedSpotId].openPopup();
+      }
       if (document.getElementById('locationModal').style.display === 'flex') {
         filterRegisteredPins();
       }
@@ -858,27 +1013,8 @@
         iconAnchor: [12, 12]
       });
 
-      const imgHtml = spot.img ? `<img src="${spot.img}" class="popup-img" />` : '';
-      const adminControls = adminPassword ? `
-        <div class="admin-popup-actions">
-          <button class="btn-edit-sm" onclick="openEditModal(${spot.id})">✏️ 編集</button>
-          <button class="btn-del-sm" onclick="deleteSpot(${spot.id})">🗑️ 削除</button>
-        </div>
-      ` : '';
-
-      const popupContent = `
-        <div style="min-width:210px;">
-          <span class="badge" style="background:${meta.color};">${meta.label}</span>
-          <h4 style="margin:4px 0; font-size:0.95rem;">${escapeHtml(spot.title)}</h4>
-          <p style="font-size:0.82rem; color:#444; line-height:1.4;">${escapeHtml(spot.desc)}</p>
-          ${imgHtml}
-          <button class="btn-nav-sm" onclick="startNavigationById(${spot.id})">🧭 ここへナビ</button>
-          ${adminControls}
-        </div>
-      `;
-
       const marker = L.marker([spot.lat, spot.lng], { icon: customIcon })
-        .bindPopup(popupContent)
+        .bindPopup(buildPopupHtml(spot))
         .addTo(markersLayer);
 
       markerMap[spot.id] = marker;
@@ -1009,7 +1145,15 @@
 
       const { error } = await supabaseClient
         .from('spots')
-        .insert([{ category, title, desc, lat, lng, img: imgData }]);
+        .insert([{
+          category,
+          title,
+          desc,
+          lat,
+          lng,
+          img: imgData,
+          reactions: { like: 0, check: 0, idea: 0, heart: 0 }
+        }]);
 
       if (error) throw error;
 
