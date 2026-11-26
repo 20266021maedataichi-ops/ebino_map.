@@ -171,16 +171,16 @@
 
   <div class="hazard-group-title">🕰️ 過去との比較（年代別航空写真）</div>
   <label class="hazard-option">
+    <input type="radio" name="hazardOverlay" value="past2007" onchange="setHazardOverlay('past2007')" />
+    <span>🕰️ 2007年頃（平成19年頃・カラー）</span>
+  </label>
+  <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="past1974" onchange="setHazardOverlay('past1974')" />
     <span>🕰️ 1974〜78年（昭和50年頃・カラー）</span>
   </label>
   <label class="hazard-option">
     <input type="radio" name="hazardOverlay" value="past1961" onchange="setHazardOverlay('past1961')" />
     <span>🕰️ 1961〜69年（昭和36〜44年・白黒）</span>
-  </label>
-  <label class="hazard-option">
-    <input type="radio" name="hazardOverlay" value="past1945" onchange="setHazardOverlay('past1945')" />
-    <span>🕰️ 1945〜50年（戦後直後・米軍撮影）</span>
   </label>
 
   <div class="hazard-group-title">🛡️ 防災・ハザード・地形</div>
@@ -368,14 +368,14 @@
   });
 
   const hazardTileLayers = {
+    past2007: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort/{z}/{x}/{y}.jpg', {
+      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（2007年頃航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
+    }),
     past1974: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/gazo1/{z}/{x}/{y}.jpg', {
       attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1974〜78年航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
     past1961: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort_old10/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1961〜69年航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
-    }),
-    past1945: L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/ort_USA10/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院（1945〜50年航空写真）</a>', opacity: 0.65, maxNativeZoom: 17, maxZoom: 18
     }),
     rain: null,
     flood: L.tileLayer('https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png', {
@@ -559,9 +559,9 @@
     }
     btn.classList.add('active');
     const labels = {
+      past2007: '🕰️ 2007年頃写真ON',
       past1974: '🕰️ 1974〜78年写真ON',
       past1961: '🕰️ 1961〜69年写真ON',
-      past1945: '🕰️ 1945〜50年写真ON',
       flood: '🌊 洪水想定ON',
       landslide: '⛰️ 土砂警戒ON',
       hillshade: '🗻 陰影起伏ON',
