@@ -603,22 +603,56 @@
 <div id="fishingSeasonBanner" class="fishing-season-banner"></div>
 
 <!-- 釣り・漁業権オーバーレイ凡例 -->
-<div id="fishingLegendCard" class="fishing-legend-card">
-  <div style="font-weight:bold; color:#006064;">🎣 漁業権・禁漁区（テスト表示）</div>
-  <div class="fishing-legend-item">
-    <span class="fishing-swatch" style="background:rgba(211,47,47,0.35); border:2px solid #d32f2f;"></span>
-    <span>周年禁漁区（保護水面・堰堤周辺）</span>
+<div id="fishingLegendCard" class="fishing-legend-card" style="max-width: 290px; max-height: 55vh; overflow-y: auto;">
+  <div style="font-weight:bold; color:#006064; border-bottom:1px solid #b2ebf2; padding-bottom:4px; margin-bottom:5px;">
+    🎣 川内川上流漁協・えびの市 遊漁ルール
   </div>
   <div class="fishing-legend-item">
-    <span class="fishing-swatch" style="background:rgba(245,124,0,0.25); border:2px dashed #ef6c00;"></span>
-    <span>期間禁漁エリア（魚種別禁漁期間）</span>
+    <span class="fishing-swatch" style="background:rgba(211,47,47,0.35); border:2px solid #d32f2f;"></span>
+    <span><strong>周年禁漁区</strong>（全河川の堰堤上流50m・下流200m以内、魚道・立入禁止区域）</span>
+  </div>
+  <div class="fishing-legend-item">
+    <span class="fishing-swatch" style="background:rgba(46,125,50,0.25); border:2px solid #2e7d32;"></span>
+    <span><strong>クルソン峡（No.6より上流）</strong>：エサ釣り等のヤマメ釣り場</span>
+  </div>
+  <div class="fishing-legend-item">
+    <span class="fishing-swatch" style="background:rgba(123,31,162,0.25); border:2px solid #7b1fa2;"></span>
+    <span><strong>クルソン峡（No.6より下流）</strong>：ルアー＆フライ専用ゾーン</span>
   </div>
   <div class="fishing-legend-item">
     <span class="fishing-swatch" style="background:#0288d1; height:4px;"></span>
-    <span>遊漁券対象河川（漁業権設定区間）</span>
+    <span><strong>遊漁券（鑑札）対象河川</strong>：川内川水系</span>
   </div>
+
+  <!-- 採捕禁止サイズ・禁漁期間ミニ早見表 -->
+  <div style="margin-top:7px; padding:6px; background:#f5f9fa; border-radius:6px; font-size:0.7rem;">
+    <strong style="color:#004d40;">📏 採捕禁止サイズ（周年）・禁漁期</strong>
+    <table style="width:100%; border-collapse:collapse; margin-top:3px; font-size:0.68rem;">
+      <tr style="border-bottom:1px solid #ddd; color:#555;">
+        <th style="text-align:left;">魚種</th>
+        <th style="text-align:left;">禁漁期間</th>
+        <th style="text-align:right;">禁止サイズ</th>
+      </tr>
+      <tr><td>ヤマメ</td><td>10/1〜2月末</td><td style="text-align:right;">15cm以下</td></tr>
+      <tr><td>アユ</td><td>1/1〜5/31※</td><td style="text-align:right;">—</td></tr>
+      <tr><td>ウナギ</td><td>10/1〜3/31</td><td style="text-align:right;">25cm以下</td></tr>
+      <tr><td>ニジマス</td><td>2/1〜3/31</td><td style="text-align:right;">15cm以下</td></tr>
+      <tr><td>ウグイ</td><td>3/1〜4/30</td><td style="text-align:right;">—</td></tr>
+      <tr><td>コイ・ボラ</td><td>周年可</td><td style="text-align:right;">10cm以下</td></tr>
+    </table>
+    <div style="font-size:0.64rem; color:#666; margin-top:2px;">※アユは漁協解禁日以降のみ可／ウナギ25cm超は禁漁期採捕禁止</div>
+  </div>
+
+  <!-- 窓口・FISHPASS案内 -->
+  <div style="margin-top:6px; font-size:0.7rem; line-height:1.4; color:#333;">
+    <strong>🎫 遊漁券・お問い合わせ</strong><br>
+    川内川上流漁協（えびの市役所 畜産農政課内）<br>
+    TEL: <a href="tel:0984351111" style="color:#0277bd;">0984-35-1111</a> ／ 
+    <a href="https://www.fishpass.co.jp/" target="_blank" rel="noopener" style="color:#0277bd; font-weight:bold;">FISHPASS(オンライン購入)</a>
+  </div>
+
   <div class="fishing-disclaimer">
-    ※現在はサンプル座標・テスト規則です。実際の釣行時は必ず管轄漁協の最新遊漁規則および現地看板をご確認ください。
+    ※マップ上のポリゴン範囲は目安です。実際の釣行時は現地の看板（堰堤・クルソン峡No.6境界等）および川内川上流漁協の最新遊漁規則をご確認ください。
   </div>
 </div>
 <!-- 右側から開くスッキリ収納メニュー -->
@@ -3115,118 +3149,145 @@ setTimeout(() => {
     </div>
   </div>
 </div>
-    <script>
+<script>
 // ==========================================
-// 🎣 禁漁期間・禁漁区・遊漁券オーバーレイ（テスト実装）
+// 🎣 えびの市・川内川上流漁協 遊漁ルール＆禁漁区オーバーレイ
 // ==========================================
 let fishingOverlayLayer = null;
 let isFishingOverlayVisible = false;
 
-// 1. 現在の日付から禁漁期間を自動判定する関数（サンプル規則）
+// 1. 現在の日付から宮崎県・川内川上流漁協の禁漁期間を自動判定
 function evaluateFishingSeasonStatus(date = new Date()) {
   const month = date.getMonth() + 1; // 1〜12
   const day = date.getDate();
 
-  // サンプル規則例：ヤマメ（エノハ）10月1日〜翌年2月末まで禁漁
-  const isYamameClosed = (month >= 10 || month <= 2);
-  // サンプル規則例：アユ 1月1日〜5月31日まで禁漁（6月1日解禁想定）
-  const isAyuClosed = (month >= 1 && month <= 5);
+  // 宮崎県ルールに基づく魚種別禁漁判定
+  const isYamameClosed = (month >= 10 || month <= 2);           // ヤマメ：10/1〜2月末
+  const isAyuClosed = (month >= 1 && month <= 5);               // アユ：1/1〜5/31（※漁協解禁外も不可）
+  const isUnagiClosed = (month >= 10 || month <= 3);            // ウナギ(25cm超)：10/1〜3/31
+  const isNijimasuClosed = (month === 2 || month === 3);        // ニジマス：2/1〜3/31
+  const isUguiClosed = (month === 3 || month === 4);            // ウグイ：3/1〜4/30
 
-  const alerts = [];
-  if (isYamameClosed) alerts.push("ヤマメ禁漁期間中（10/1〜2月末・サンプル設定）");
-  if (isAyuClosed) alerts.push("アユ禁漁期間中（1/1〜5/31・サンプル設定）");
+  const closedFishes = [];
+  if (isYamameClosed) closedFishes.push("ヤマメ(10/1〜2月末)");
+  if (isAyuClosed) closedFishes.push("アユ(1/1〜5/31)");
+  if (isUnagiClosed) closedFishes.push("ウナギ25cm超(10/1〜3/31)");
+  if (isNijimasuClosed) closedFishes.push("ニジマス(2/1〜3/31)");
+  if (isUguiClosed) closedFishes.push("ウグイ(3/1〜4/30)");
 
   return {
-    isAnyClosed: alerts.length > 0,
+    isAnyClosed: closedFishes.length > 0,
     isYamameClosed,
     isAyuClosed,
-    message: alerts.length > 0
-      ? `⚠️ 本日（${month}/${day}）の規則判定：${alerts.join(" ／ ")}`
-      : `✅ 本日（${month}/${day}）の規則判定：主要魚種の禁漁期間外です（サンプル設定）`
+    isUnagiClosed,
+    message: closedFishes.length > 0
+      ? `⚠️ 本日(${month}/${day})の禁漁対象：${closedFishes.join("・")} ／ 全河川の堰堤上流50m・下流200mは周年禁漁`
+      : `✅ 本日(${month}/${day})：主要魚種解禁期（全河川の堰堤上流50m・下流200mは周年禁漁・要遊漁券）`
   };
 }
 
-// 2. ダミーの禁漁区ポリゴン・遊漁券ラインを構築
+// 2. クルソン峡ゾーニング・堰堤禁漁・川内川遊漁券ラインの描画
 function buildFishingOverlayLayer() {
   const group = L.layerGroup();
-  const status = evaluateFishingSeasonStatus();
 
-  // ① サンプル：周年禁漁区ポリゴン（えびの市・川内川 堰堤上下流イメージ）
-  const yearRoundClosedCoords = [
-    [32.0435, 130.8080],
-    [32.0445, 130.8135],
-    [32.0415, 130.8145],
-    [32.0405, 130.8090]
+  // ① クルソン峡：No.6より上流（エサ釣り等のヤマメ釣り場エリア目安）
+  const kurusonUpperCoords = [
+    [32.1030, 130.7680],
+    [32.1060, 130.7740],
+    [32.0965, 130.7810],
+    [32.0940, 130.7755]
   ];
-  L.polygon(yearRoundClosedCoords, {
+  L.polygon(kurusonUpperCoords, {
+    color: "#2e7d32",
+    weight: 2,
+    fillColor: "#2e7d32",
+    fillOpacity: 0.25
+  }).bindPopup(`
+    <div style="font-size:0.84rem; line-height:1.5;">
+      <strong style="color:#2e7d32;">🎣 クルソン峡（No.6より上流エリア目安）</strong><br>
+      区分：<strong>エサ釣り等のヤマメ釣り場</strong><br>
+      禁漁期間：10月1日〜翌年2月末日（15cm以下周年採捕禁止）<br>
+      ※遊漁承認証（鑑札）が必要です。
+    </div>
+  `).addTo(group);
+
+  // ② クルソン峡：No.6より下流（ルアー＆フライ専用ゾーン目安）
+  const kurusonLowerCoords = [
+    [32.0940, 130.7755],
+    [32.0965, 130.7810],
+    [32.0865, 130.7875],
+    [32.0845, 130.7820]
+  ];
+  L.polygon(kurusonLowerCoords, {
+    color: "#7b1fa2",
+    weight: 2,
+    fillColor: "#7b1fa2",
+    fillOpacity: 0.25
+  }).bindPopup(`
+    <div style="font-size:0.84rem; line-height:1.5;">
+      <strong style="color:#7b1fa2;">🪰 クルソン峡（No.6より下流エリア目安）</strong><br>
+      区分：<strong>ルアー＆フライ専用ゾーン</strong>（エサ釣り不可）<br>
+      禁漁期間：10月1日〜翌年2月末日（15cm以下周年採捕禁止）<br>
+      ※現地のNo.6境界標識を必ずご確認ください。
+    </div>
+  `).addTo(group);
+
+  // ③ クルソン峡 No.6 境界マーカー
+  L.circleMarker([32.0952, 130.7782], {
+    radius: 7,
+    color: "#fff",
+    weight: 2,
+    fillColor: "#6a1b9a",
+    fillOpacity: 1
+  }).bindPopup(`
+    <div style="font-size:0.84rem; line-height:1.5;">
+      <strong>📌 クルソン峡 No.6 釣法境界（目安地点）</strong><br>
+      ・上流側：エサ釣り等のヤマメ釣り場<br>
+      ・下流側：ルアー＆フライ専用ゾーン
+    </div>
+  `).addTo(group);
+
+  // ④ 堰堤周辺 周年禁漁区の例（上流50m・下流200m規制のイメージ表示）
+  const weirClosedCoords = [
+    [32.0432, 130.8085],
+    [32.0442, 130.8125],
+    [32.0418, 130.8132],
+    [32.0408, 130.8092]
+  ];
+  L.polygon(weirClosedCoords, {
     color: "#d32f2f",
     weight: 2,
     fillColor: "#d32f2f",
     fillOpacity: 0.35
   }).bindPopup(`
-    <div style="font-size:0.85rem; line-height:1.5;">
-      <strong style="color:#d32f2f;">🚫 周年禁漁区（テストデータ）</strong><br>
-      区域：川内川 〇〇堰堤上下流 保護区間（例）<br>
-      規制：全魚種・通年採捕禁止<br>
-      <small style="color:#666;">※動作確認用のダミー座標です</small>
+    <div style="font-size:0.84rem; line-height:1.5;">
+      <strong style="color:#d32f2f;">🚫 堰堤周辺 周年禁漁区（規則案内）</strong><br>
+      宮崎県内ルールにより、<strong>全河川の堰堤上流50m・下流200m以内</strong>、および魚道・立入禁止看板のある区域は年間を通して採捕禁止です。
     </div>
   `).addTo(group);
 
-  // ② サンプル：期間禁漁エリア（ヤマメ産卵保護区イメージ・日付連動で色変化）
-  const seasonalClosedCoords = [
-    [32.0540, 130.8350],
-    [32.0565, 130.8440],
-    [32.0515, 130.8460],
-    [32.0495, 130.8370]
-  ];
-  const seasonalColor = status.isYamameClosed ? "#d32f2f" : "#ef6c00";
-  L.polygon(seasonalClosedCoords, {
-    color: seasonalColor,
-    weight: 2,
-    dashArray: "6, 4",
-    fillColor: seasonalColor,
-    fillOpacity: 0.25
-  }).bindPopup(`
-    <div style="font-size:0.85rem; line-height:1.5;">
-      <strong style="color:${seasonalColor};">⏳ 期間指定 禁漁エリア（テストデータ）</strong><br>
-      対象：ヤマメ（エノハ）保護区域（例）<br>
-      禁漁期間：10月1日〜翌年2月末日<br>
-      現在判定：<strong>${status.isYamameClosed ? "禁漁期間中（採捕禁止）" : "解禁期間中"}</strong><br>
-      <small style="color:#666;">※動作確認用のダミー座標です</small>
-    </div>
-  `).addTo(group);
-
-  // ③ サンプル：遊漁券（漁業権）対象河川ライン
-  const licenseRiverCoords = [
-    [32.0360, 130.7850],
-    [32.0395, 130.7980],
+  // ⑤ 川内川本流 遊漁券（鑑札）対象河川ライン
+  const sendaiRiverCoords = [
+    [32.0855, 130.7848],
+    [32.0720, 130.7880],
+    [32.0560, 130.7910],
     [32.0425, 130.8110],
     [32.0460, 130.8250],
     [32.0525, 130.8400],
     [32.0580, 130.8550]
   ];
-  L.polyline(licenseRiverCoords, {
+  L.polyline(sendaiRiverCoords, {
     color: "#0288d1",
     weight: 5,
     opacity: 0.8
   }).bindPopup(`
-    <div style="font-size:0.85rem; line-height:1.5;">
-      <strong style="color:#0277bd;">🎫 遊漁券対象区間（テストデータ）</strong><br>
-      河川：川内川水系（サンプル区間）<br>
-      対象魚種：アユ・ヤマメ・コイ・ウナギ等<br>
-      遊漁料目安：日券 1,000円〜 / 年券 4,000円〜（例）<br>
-      <small style="color:#666;">※実際の料金・販売所は管轄漁協規則をご確認ください</small>
+    <div style="font-size:0.84rem; line-height:1.5;">
+      <strong style="color:#0277bd;">🎫 川内川上流漁協 遊漁券（鑑札）対象区間</strong><br>
+      対象：ヤマメ・アユ・ウナギ・コイ・フナ・オイカワ等<br>
+      窓口：えびの市役所 畜産農政課内（0984-35-1111）<br>
+      オンライン購入：<a href="https://www.fishpass.co.jp/" target="_blank" rel="noopener">FISHPASS（川内川上流漁協）</a>
     </div>
   `).addTo(group);
-
-  // ④ サンプル：境界ポイントマーカー
-  L.circleMarker([32.0425, 130.8110], {
-    radius: 6,
-    color: "#fff",
-    weight: 2,
-    fillColor: "#d32f2f",
-    fillOpacity: 1
-  }).bindPopup("📌 <strong>禁漁区境界（サンプル地点）</strong><br>ここから上流〇〇mは禁漁区（例）").addTo(group);
 
   return group;
 }
