@@ -3186,16 +3186,19 @@ function evaluateFishingSeasonStatus(date = new Date()) {
   };
 }
 
-// 2. クルソン峡ゾーニング・堰堤禁漁・川内川遊漁券ラインの描画
+// 2. クルソン峡ゾーニング・享保水路井堰禁漁・川内川遊漁券ラインの描画
 function buildFishingOverlayLayer() {
   const group = L.layerGroup();
 
-  // ① クルソン峡：No.6より上流（エサ釣り等のヤマメ釣り場エリア目安）
+  // ① クルソン峡：No.6より上流（エサ釣り等のヤマメ釣り場エリア）
+  // 狗留孫峡（北部渓谷）〜 山の神橋付近の谷筋に沿った座標
   const kurusonUpperCoords = [
-    [32.1030, 130.7680],
-    [32.1060, 130.7740],
-    [32.0965, 130.7810],
-    [32.0940, 130.7755]
+    [32.1145, 130.8655],
+    [32.1145, 130.8705],
+    [32.1045, 130.8675],
+    [32.0975, 130.8660],
+    [32.0975, 130.8615],
+    [32.1050, 130.8630]
   ];
   L.polygon(kurusonUpperCoords, {
     color: "#2e7d32",
@@ -3204,19 +3207,23 @@ function buildFishingOverlayLayer() {
     fillOpacity: 0.25
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
-      <strong style="color:#2e7d32;">🎣 クルソン峡（No.6より上流エリア目安）</strong><br>
+      <strong style="color:#2e7d32;">🎣 クルソン峡（No.6より上流エリア）</strong><br>
+      場所：狗留孫峡〜山の神橋 周辺渓谷<br>
       区分：<strong>エサ釣り等のヤマメ釣り場</strong><br>
       禁漁期間：10月1日〜翌年2月末日（15cm以下周年採捕禁止）<br>
-      ※遊漁承認証（鑑札）が必要です。
+      ※遊漁承認証（鑑札）および現地標識をご確認ください。
     </div>
   `).addTo(group);
 
-  // ② クルソン峡：No.6より下流（ルアー＆フライ専用ゾーン目安）
+  // ② クルソン峡：No.6より下流（ルアー＆フライ専用ゾーン）
+  // 山の神橋付近 〜 クルソン峡川遊びポイント 〜 享保水路井堰上流手前
   const kurusonLowerCoords = [
-    [32.0940, 130.7755],
-    [32.0965, 130.7810],
-    [32.0865, 130.7875],
-    [32.0845, 130.7820]
+    [32.0975, 130.8615],
+    [32.0975, 130.8660],
+    [32.0900, 130.8645],
+    [32.0835, 130.8605],
+    [32.0850, 130.8565],
+    [32.0910, 130.8600]
   ];
   L.polygon(kurusonLowerCoords, {
     color: "#7b1fa2",
@@ -3225,15 +3232,16 @@ function buildFishingOverlayLayer() {
     fillOpacity: 0.25
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
-      <strong style="color:#7b1fa2;">🪰 クルソン峡（No.6より下流エリア目安）</strong><br>
+      <strong style="color:#7b1fa2;">🪰 クルソン峡（No.6より下流エリア）</strong><br>
+      場所：山の神橋下流〜川遊びポイント周辺<br>
       区分：<strong>ルアー＆フライ専用ゾーン</strong>（エサ釣り不可）<br>
       禁漁期間：10月1日〜翌年2月末日（15cm以下周年採捕禁止）<br>
       ※現地のNo.6境界標識を必ずご確認ください。
     </div>
   `).addTo(group);
 
-  // ③ クルソン峡 No.6 境界マーカー
-  L.circleMarker([32.0952, 130.7782], {
+  // ③ クルソン峡 No.6 境界目安マーカー（山の神橋付近）
+  L.circleMarker([32.0975, 130.8638], {
     radius: 7,
     color: "#fff",
     weight: 2,
@@ -3242,39 +3250,44 @@ function buildFishingOverlayLayer() {
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
       <strong>📌 クルソン峡 No.6 釣法境界（目安地点）</strong><br>
-      ・上流側：エサ釣り等のヤマメ釣り場<br>
-      ・下流側：ルアー＆フライ専用ゾーン
+      ・上流側（北）：エサ釣り等のヤマメ釣り場<br>
+      ・下流側（南）：ルアー＆フライ専用ゾーン<br>
+      <small style="color:#666;">※正確な境界は現地のNo.6看板に従ってください</small>
     </div>
   `).addTo(group);
 
-  // ④ 堰堤周辺 周年禁漁区の例（上流50m・下流200m規制のイメージ表示）
-  const weirClosedCoords = [
-    [32.0432, 130.8085],
-    [32.0442, 130.8125],
-    [32.0418, 130.8132],
-    [32.0408, 130.8092]
+  // ④ 享保水路井堰 周辺（堰堤上流50m・下流200m 周年禁漁区）
+  const kyohoWeirClosedCoords = [
+    [32.0815, 130.8555],
+    [32.0808, 130.8578],
+    [32.0785, 130.8562],
+    [32.0793, 130.8540]
   ];
-  L.polygon(weirClosedCoords, {
+  L.polygon(kyohoWeirClosedCoords, {
     color: "#d32f2f",
     weight: 2,
     fillColor: "#d32f2f",
-    fillOpacity: 0.35
+    fillOpacity: 0.4
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
-      <strong style="color:#d32f2f;">🚫 堰堤周辺 周年禁漁区（規則案内）</strong><br>
+      <strong style="color:#d32f2f;">🚫 享保水路井堰 周辺（周年禁漁区）</strong><br>
       宮崎県内ルールにより、<strong>全河川の堰堤上流50m・下流200m以内</strong>、および魚道・立入禁止看板のある区域は年間を通して採捕禁止です。
     </div>
   `).addTo(group);
 
-  // ⑤ 川内川本流 遊漁券（鑑札）対象河川ライン
+  // ⑤ クルソン峡〜大河平〜川内川本流 遊漁券（鑑札）対象河川ライン
   const sendaiRiverCoords = [
-    [32.0855, 130.7848],
-    [32.0720, 130.7880],
-    [32.0560, 130.7910],
-    [32.0425, 130.8110],
+    [32.1140, 130.8680], // 狗留孫峡上流
+    [32.1045, 130.8652],
+    [32.0975, 130.8638], // 山の神橋付近
+    [32.0905, 130.8622], // クルソン峡 川遊びポイント付近
+    [32.0802, 130.8560], // 享保水路井堰付近
+    [32.0725, 130.8490], // 大河平南側
+    [32.0620, 130.8480],
+    [32.0525, 130.8400], // 川内川本流合流・下流方面
     [32.0460, 130.8250],
-    [32.0525, 130.8400],
-    [32.0580, 130.8550]
+    [32.0425, 130.8110],
+    [32.0360, 130.7850]
   ];
   L.polyline(sendaiRiverCoords, {
     color: "#0288d1",
@@ -3283,6 +3296,7 @@ function buildFishingOverlayLayer() {
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
       <strong style="color:#0277bd;">🎫 川内川上流漁協 遊漁券（鑑札）対象区間</strong><br>
+      区間：クルソン峡（川内川上流）〜大河平〜川内川本流<br>
       対象：ヤマメ・アユ・ウナギ・コイ・フナ・オイカワ等<br>
       窓口：えびの市役所 畜産農政課内（0984-35-1111）<br>
       オンライン購入：<a href="https://www.fishpass.co.jp/" target="_blank" rel="noopener">FISHPASS（川内川上流漁協）</a>
