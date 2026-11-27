@@ -418,6 +418,144 @@
   padding: 10px;
   margin-bottom: 10px;
 }
+      /* --- 釣り・漁業権・禁漁区オーバーレイ用 --- */
+.fishing-toggle-btn {
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 4px 9px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.15s;
+}
+.fishing-toggle-btn.active {
+  background: #00838f;
+  border-color: #80deea;
+  font-weight: bold;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+.fishing-season-banner {
+  display: none;
+  background: #fff3e0;
+  color: #bf360c;
+  border-bottom: 1px solid #ffcc80;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: bold;
+  text-align: center;
+  z-index: 998;
+}
+.fishing-season-banner.is-closed {
+  background: #ffebee;
+  color: #b71c1c;
+  border-bottom-color: #ef9a9a;
+}
+.fishing-legend-card {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 10px;
+  z-index: 990;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  max-width: 260px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+.fishing-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.fishing-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.fishing-disclaimer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #ccc;
+  font-size: 0.68rem;
+  color: #666;
+}
+      /* --- 釣り・漁業権・禁漁区オーバーレイ用 --- */
+.fishing-toggle-btn {
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  padding: 4px 9px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.15s;
+}
+.fishing-toggle-btn.active {
+  background: #00838f;
+  border-color: #80deea;
+  font-weight: bold;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+.fishing-season-banner {
+  display: none;
+  background: #fff3e0;
+  color: #bf360c;
+  border-bottom: 1px solid #ffcc80;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: bold;
+  text-align: center;
+  z-index: 998;
+}
+.fishing-season-banner.is-closed {
+  background: #ffebee;
+  color: #b71c1c;
+  border-bottom-color: #ef9a9a;
+}
+.fishing-legend-card {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 10px;
+  z-index: 990;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 10px 12px;
+  max-width: 260px;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+.fishing-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+.fishing-swatch {
+  display: inline-block;
+  width: 16px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.fishing-disclaimer {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #ccc;
+  font-size: 0.68rem;
+  color: #666;
+}
   </style>
     <script>
   (function() {
@@ -457,10 +595,32 @@
   <div class="header-compact-right">
     <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">🌤️ 天気読込中</button>
     <button type="button" class="nav-btn" onclick="startGpsTrackRecording()" style="background:#ef6c00; color:#fff; padding:4px 9px; font-size:0.75rem; border-radius:12px;">🧭 記録</button>
+      <button type="button" id="fishingToggleBtn" class="fishing-toggle-btn" onclick="toggleFishingOverlay()">🎣 禁漁区</button>
     <button type="button" class="menu-toggle-btn" onclick="openToolDrawer()">☰ メニュー</button>
   </div>
 </header>
+<!-- 釣り・禁漁期間 自動判定バナー -->
+<div id="fishingSeasonBanner" class="fishing-season-banner"></div>
 
+<!-- 釣り・漁業権オーバーレイ凡例 -->
+<div id="fishingLegendCard" class="fishing-legend-card">
+  <div style="font-weight:bold; color:#006064;">🎣 漁業権・禁漁区（テスト表示）</div>
+  <div class="fishing-legend-item">
+    <span class="fishing-swatch" style="background:rgba(211,47,47,0.35); border:2px solid #d32f2f;"></span>
+    <span>周年禁漁区（保護水面・堰堤周辺）</span>
+  </div>
+  <div class="fishing-legend-item">
+    <span class="fishing-swatch" style="background:rgba(245,124,0,0.25); border:2px dashed #ef6c00;"></span>
+    <span>期間禁漁エリア（魚種別禁漁期間）</span>
+  </div>
+  <div class="fishing-legend-item">
+    <span class="fishing-swatch" style="background:#0288d1; height:4px;"></span>
+    <span>遊漁券対象河川（漁業権設定区間）</span>
+  </div>
+  <div class="fishing-disclaimer">
+    ※現在はサンプル座標・テスト規則です。実際の釣行時は必ず管轄漁協の最新遊漁規則および現地看板をご確認ください。
+  </div>
+</div>
 <!-- 右側から開くスッキリ収納メニュー -->
 <div class="tool-drawer-overlay" id="toolDrawerOverlay" onclick="if(event.target===this) closeToolDrawer()">
   <div class="tool-drawer-panel">
@@ -2955,5 +3115,150 @@ setTimeout(() => {
     </div>
   </div>
 </div>
+    <script>
+// ==========================================
+// 🎣 禁漁期間・禁漁区・遊漁券オーバーレイ（テスト実装）
+// ==========================================
+let fishingOverlayLayer = null;
+let isFishingOverlayVisible = false;
+
+// 1. 現在の日付から禁漁期間を自動判定する関数（サンプル規則）
+function evaluateFishingSeasonStatus(date = new Date()) {
+  const month = date.getMonth() + 1; // 1〜12
+  const day = date.getDate();
+
+  // サンプル規則例：ヤマメ（エノハ）10月1日〜翌年2月末まで禁漁
+  const isYamameClosed = (month >= 10 || month <= 2);
+  // サンプル規則例：アユ 1月1日〜5月31日まで禁漁（6月1日解禁想定）
+  const isAyuClosed = (month >= 1 && month <= 5);
+
+  const alerts = [];
+  if (isYamameClosed) alerts.push("ヤマメ禁漁期間中（10/1〜2月末・サンプル設定）");
+  if (isAyuClosed) alerts.push("アユ禁漁期間中（1/1〜5/31・サンプル設定）");
+
+  return {
+    isAnyClosed: alerts.length > 0,
+    isYamameClosed,
+    isAyuClosed,
+    message: alerts.length > 0
+      ? `⚠️ 本日（${month}/${day}）の規則判定：${alerts.join(" ／ ")}`
+      : `✅ 本日（${month}/${day}）の規則判定：主要魚種の禁漁期間外です（サンプル設定）`
+  };
+}
+
+// 2. ダミーの禁漁区ポリゴン・遊漁券ラインを構築
+function buildFishingOverlayLayer() {
+  const group = L.layerGroup();
+  const status = evaluateFishingSeasonStatus();
+
+  // ① サンプル：周年禁漁区ポリゴン（えびの市・川内川 堰堤上下流イメージ）
+  const yearRoundClosedCoords = [
+    [32.0435, 130.8080],
+    [32.0445, 130.8135],
+    [32.0415, 130.8145],
+    [32.0405, 130.8090]
+  ];
+  L.polygon(yearRoundClosedCoords, {
+    color: "#d32f2f",
+    weight: 2,
+    fillColor: "#d32f2f",
+    fillOpacity: 0.35
+  }).bindPopup(`
+    <div style="font-size:0.85rem; line-height:1.5;">
+      <strong style="color:#d32f2f;">🚫 周年禁漁区（テストデータ）</strong><br>
+      区域：川内川 〇〇堰堤上下流 保護区間（例）<br>
+      規制：全魚種・通年採捕禁止<br>
+      <small style="color:#666;">※動作確認用のダミー座標です</small>
+    </div>
+  `).addTo(group);
+
+  // ② サンプル：期間禁漁エリア（ヤマメ産卵保護区イメージ・日付連動で色変化）
+  const seasonalClosedCoords = [
+    [32.0540, 130.8350],
+    [32.0565, 130.8440],
+    [32.0515, 130.8460],
+    [32.0495, 130.8370]
+  ];
+  const seasonalColor = status.isYamameClosed ? "#d32f2f" : "#ef6c00";
+  L.polygon(seasonalClosedCoords, {
+    color: seasonalColor,
+    weight: 2,
+    dashArray: "6, 4",
+    fillColor: seasonalColor,
+    fillOpacity: 0.25
+  }).bindPopup(`
+    <div style="font-size:0.85rem; line-height:1.5;">
+      <strong style="color:${seasonalColor};">⏳ 期間指定 禁漁エリア（テストデータ）</strong><br>
+      対象：ヤマメ（エノハ）保護区域（例）<br>
+      禁漁期間：10月1日〜翌年2月末日<br>
+      現在判定：<strong>${status.isYamameClosed ? "禁漁期間中（採捕禁止）" : "解禁期間中"}</strong><br>
+      <small style="color:#666;">※動作確認用のダミー座標です</small>
+    </div>
+  `).addTo(group);
+
+  // ③ サンプル：遊漁券（漁業権）対象河川ライン
+  const licenseRiverCoords = [
+    [32.0360, 130.7850],
+    [32.0395, 130.7980],
+    [32.0425, 130.8110],
+    [32.0460, 130.8250],
+    [32.0525, 130.8400],
+    [32.0580, 130.8550]
+  ];
+  L.polyline(licenseRiverCoords, {
+    color: "#0288d1",
+    weight: 5,
+    opacity: 0.8
+  }).bindPopup(`
+    <div style="font-size:0.85rem; line-height:1.5;">
+      <strong style="color:#0277bd;">🎫 遊漁券対象区間（テストデータ）</strong><br>
+      河川：川内川水系（サンプル区間）<br>
+      対象魚種：アユ・ヤマメ・コイ・ウナギ等<br>
+      遊漁料目安：日券 1,000円〜 / 年券 4,000円〜（例）<br>
+      <small style="color:#666;">※実際の料金・販売所は管轄漁協規則をご確認ください</small>
+    </div>
+  `).addTo(group);
+
+  // ④ サンプル：境界ポイントマーカー
+  L.circleMarker([32.0425, 130.8110], {
+    radius: 6,
+    color: "#fff",
+    weight: 2,
+    fillColor: "#d32f2f",
+    fillOpacity: 1
+  }).bindPopup("📌 <strong>禁漁区境界（サンプル地点）</strong><br>ここから上流〇〇mは禁漁区（例）").addTo(group);
+
+  return group;
+}
+
+// 3. ボタンクリック時の表示切り替え処理
+function toggleFishingOverlay() {
+  const btn = document.getElementById("fishingToggleBtn");
+  const banner = document.getElementById("fishingSeasonBanner");
+  const legend = document.getElementById("fishingLegendCard");
+
+  if (!fishingOverlayLayer) {
+    fishingOverlayLayer = buildFishingOverlayLayer();
+  }
+
+  isFishingOverlayVisible = !isFishingOverlayVisible;
+
+  if (isFishingOverlayVisible) {
+    fishingOverlayLayer.addTo(map);
+    btn.classList.add("active");
+
+    const status = evaluateFishingSeasonStatus();
+    banner.textContent = status.message;
+    banner.classList.toggle("is-closed", status.isAnyClosed);
+    banner.style.display = "block";
+    legend.style.display = "block";
+  } else {
+    map.removeLayer(fishingOverlayLayer);
+    btn.classList.remove("active");
+    banner.style.display = "none";
+    legend.style.display = "none";
+  }
+}
+</script>
 </body>
 </html>
