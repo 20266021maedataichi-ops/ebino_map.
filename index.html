@@ -227,6 +227,70 @@
 .gps-hud-btns { display: flex; gap: 8px; }
 .gps-stop-btn { flex: 2; background: #ff9800; color: #fff; border: none; border-radius: 8px; padding: 7px; font-weight: bold; cursor: pointer; font-size: 0.82rem; }
 .gps-cancel-btn { flex: 1; background: rgba(255,255,255,0.2); color: #fff; border: none; border-radius: 8px; padding: 7px; cursor: pointer; font-size: 0.78rem; }
+      /* 保存済みルート管理パネル */
+.route-mgr-btn {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 20px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.route-mgr-btn:hover { background: rgba(255, 255, 255, 0.28); }
+
+.route-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.route-filter-chip {
+  border: 1px solid #cfd8dc;
+  background: #f5f7f8;
+  color: #37474f;
+  border-radius: 16px;
+  padding: 5px 11px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.route-filter-chip.active {
+  background: #ef6c00;
+  color: #fff;
+  border-color: #ef6c00;
+}
+
+.route-list-card {
+  border: 1px solid #e0e0e0;
+  border-left: 5px solid #ef6c00;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.route-list-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+.route-card-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: #212121;
+  margin-bottom: 4px;
+}
+.route-card-desc {
+  font-size: 0.78rem;
+  color: #546e7a;
+  white-space: pre-wrap;
+  line-height: 1.4;
+}
   </style>
     <script>
   (function() {
@@ -268,6 +332,7 @@
       <button class="dashboard-header-btn" onclick="openDashboardModal()">📊 探究集計</button>
       <button class="evac-header-btn" onclick="openEvacModal()">🏃 避難模擬</button>
       <button type="button" class="nav-btn" onclick="startGpsTrackRecording()" style="background:#ef6c00;color:#fff;">🧭 軌跡記録</button>
+      <button class="route-mgr-btn" onclick="openRouteListModal()">🗺️ ルート一覧 (<span id="savedRouteCount">0</span>)</button>
     <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
     <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
       <button class="tutorial-btn" onclick="openTutorial()">❓ 使い方</button>
@@ -2082,29 +2147,101 @@ function discardGpsTrack() {
   gpsTrackPoints = [];
   closeGpsSaveModal();
 }
+let cachedSavedRoutes = [];
+let currentRouteFilter = 'all';
+let isSavedRoutesVisible = true;
+
 async function renderSavedGpsRoutes() {
   try {
     if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
     const { data, error } = await supabaseClient
       .from('map_areas')
       .select('*')
-      .eq('category', 'gps_route');
+      .eq('category', 'gps_route')
+      .order('created_at', { ascending: false });
     if (error || !data) return;
 
-    savedRoutesLayer.clearLayers();
-    data.forEach(item => {
-      if (Array.isArray(item.coordinates) && item.coordinates.length >= 2) {
-        const lineColor = item.color || '#ef6c00';
-        L.polyline(item.coordinates, { color: '#ffffff', weight: 8, opacity: 0.85 }).addTo(savedRoutesLayer);
-        const routeLine = L.polyline(item.coordinates, { color: lineColor, weight: 5, opacity: 0.95 }).addTo(savedRoutesLayer);
-        routeLine.bindPopup(
-          `<strong>${escapeHtml(item.title || '探索ルート')}</strong><br>` +
-          `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.description || '')}</div>`
-        );
-      }
-    });
+    cachedSavedRoutes = data.filter(item => Array.isArray(item.coordinates) && item.coordinates.length >= 2);
+    const countEl = document.getElementById('savedRouteCount');
+    if (countEl) countEl.textContent = cachedSavedRoutes.length;
+
+    applyRouteFilterAndDraw();
   } catch (e) {
     console.warn('保存ルートの読み込みスキップ:', e);
+  }
+}
+
+function applyRouteFilterAndDraw() {
+  savedRoutesLayer.clearLayers();
+  const listContainer = document.getElementById('savedRoutesListContainer');
+  if (listContainer) listContainer.innerHTML = '';
+
+  const filtered = cachedSavedRoutes.filter(item => {
+    if (currentRouteFilter === 'all') return true;
+    return (item.title || '').includes(currentRouteFilter);
+  });
+
+  if (listContainer && filtered.length === 0) {
+    listContainer.innerHTML = '<p style="text-align:center; color:#78909c; padding:24px 0; font-size:0.85rem;">該当する保存ルートはまだありません。</p>';
+  }
+
+  filtered.forEach(item => {
+    const lineColor = item.color || '#ef6c00';
+
+    L.polyline(item.coordinates, { color: '#ffffff', weight: 8, opacity: 0.85 }).addTo(savedRoutesLayer);
+    const routeLine = L.polyline(item.coordinates, { color: lineColor, weight: 5, opacity: 0.95 }).addTo(savedRoutesLayer);
+    routeLine.bindPopup(
+      `<strong>${escapeHtml(item.title || '探索ルート')}</strong><br>` +
+      `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.description || '')}</div>`
+    );
+
+    if (listContainer) {
+      const card = document.createElement('div');
+      card.className = 'route-list-card';
+      card.style.borderLeftColor = lineColor;
+      card.innerHTML = `
+        <div class="route-card-title">${escapeHtml(item.title || '探索ルート')}</div>
+        <div class="route-card-desc">${escapeHtml(item.description || '')}</div>
+        <div style="margin-top:6px; font-size:0.74rem; color:#ef6c00; font-weight:700;">📍 タップして地図上でルートを表示 →</div>
+      `;
+      card.onclick = () => {
+        closeRouteListModal();
+        if (!isSavedRoutesVisible) {
+          document.getElementById('toggleRoutesVisible').checked = true;
+          toggleSavedRoutesLayer(true);
+        }
+        map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+        setTimeout(() => routeLine.openPopup(), 350);
+      };
+      listContainer.appendChild(card);
+    }
+  });
+}
+
+function openRouteListModal() {
+  applyRouteFilterAndDraw();
+  document.getElementById('routeListModal').style.display = 'flex';
+}
+
+function closeRouteListModal() {
+  document.getElementById('routeListModal').style.display = 'none';
+}
+
+function setRouteFilter(keyword, btnEl) {
+  currentRouteFilter = keyword;
+  document.querySelectorAll('#routeFilterBar .route-filter-chip').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  applyRouteFilterAndDraw();
+}
+
+function toggleSavedRoutesLayer(show) {
+  isSavedRoutesVisible = show;
+  const label = document.getElementById('toggleRoutesLabel');
+  if (label) label.textContent = show ? '表示中' : '非表示';
+  if (show) {
+    if (!map.hasLayer(savedRoutesLayer)) map.addLayer(savedRoutesLayer);
+  } else {
+    if (map.hasLayer(savedRoutesLayer)) map.removeLayer(savedRoutesLayer);
   }
 }
 
@@ -2147,6 +2284,32 @@ async function saveGpsTrackToCloud() {
 // 起動時に保存済み探索ルートも自動表示
 setTimeout(renderSavedGpsRoutes, 1500);
 </script>
+    <!-- 保存済みルート一覧・絞り込みモーダル -->
+<div class="modal-overlay" id="routeListModal" onclick="if(event.target===this) closeRouteListModal()">
+  <div class="modal" style="max-width:520px;">
+    <div class="dash-header">
+      <h2>🗺️ 保存済み探索ルート一覧</h2>
+      <button class="nav-close-btn" onclick="closeRouteListModal()" title="閉じる">×</button>
+    </div>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; background:#fff3e0; padding:10px 12px; border-radius:10px; margin-bottom:12px;">
+      <span style="font-size:0.84rem; font-weight:700; color:#e65100;">地図上のルート線を表示する</span>
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700; font-size:0.85rem;">
+        <input type="checkbox" id="toggleRoutesVisible" checked onchange="toggleSavedRoutesLayer(this.checked)" style="width:18px; height:18px;">
+        <span id="toggleRoutesLabel">表示中</span>
+      </label>
+    </div>
+
+    <div class="route-filter-bar" id="routeFilterBar">
+      <button class="route-filter-chip active" onclick="setRouteFilter('all', this)">すべて</button>
+      <button class="route-filter-chip" onclick="setRouteFilter('通学路', this)">🚨 通学路・安全</button>
+      <button class="route-filter-chip" onclick="setRouteFilter('歴史', this)">🏯 歴史・文化</button>
+      <button class="route-filter-chip" onclick="setRouteFilter('探索', this)">🌿 地域探索・自然</button>
+    </div>
+
+    <div id="savedRoutesListContainer" style="max-height:55vh; overflow-y:auto;"></div>
+  </div>
+</div>
     <!-- チュートリアルモーダル -->
 <div id="tutorialModal" onclick="if(event.target===this) closeTutorial()">
   <div class="tut-card">
