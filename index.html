@@ -291,6 +291,85 @@
   white-space: pre-wrap;
   line-height: 1.4;
 }
+      /* ヘッダースリム化＆ツールメニュー収納 */
+.header-compact-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.menu-toggle-btn {
+  background: #ffffff;
+  color: #1b5e20;
+  border: none;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+  white-space: nowrap;
+}
+.menu-toggle-btn:hover { background: #f1f8e9; }
+
+.tool-drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 4500;
+  justify-content: flex-end;
+}
+.tool-drawer-panel {
+  width: min(340px, 88vw);
+  height: 100%;
+  background: #ffffff;
+  padding: 18px 16px;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.2);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.drawer-section-title {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #607d8b;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #eceff1;
+  padding-bottom: 4px;
+}
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.drawer-item-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  background: #fafafa;
+  color: #263238;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, transform 0.1s;
+}
+.drawer-item-btn:hover { background: #f1f8e9; border-color: #aed581; }
+.drawer-item-btn:active { transform: scale(0.98); }
+.drawer-item-sub {
+  font-size: 0.68rem;
+  font-weight: 400;
+  color: #78909c;
+}
   </style>
     <script>
   (function() {
@@ -322,23 +401,77 @@
 </head>
 <body>
 
-<header>
-  <div>
-    <h1>🗺️ えびの地域共創＆探究マップ</h1>
-    <span>地域の安全・魅力・農業と人口データをみんなで共有</span>
+<header style="padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+  <div style="min-width: 0;">
+    <h1 style="font-size: 0.98rem; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🗺️ えびの地域共創＆探究マップ</h1>
   </div>
-  <div class="header-actions">
-    <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">☀️ 天気読込中</button>
-      <button class="dashboard-header-btn" onclick="openDashboardModal()">📊 探究集計</button>
-      <button class="evac-header-btn" onclick="openEvacModal()">🏃 避難模擬</button>
-      <button type="button" class="nav-btn" onclick="startGpsTrackRecording()" style="background:#ef6c00;color:#fff;">🧭 軌跡記録</button>
-      <button class="route-mgr-btn" onclick="openRouteListModal()">🗺️ ルート一覧 (<span id="savedRouteCount">0</span>)</button>
-    <button class="area-select-btn" onclick="openLocationModal()">📍 エリア切替 / ピン検索</button>
-    <div id="syncStatus" class="sync-badge" onclick="loadSpots()">🔄 接続中...</div>
-      <button class="tutorial-btn" onclick="openTutorial()">❓ 使い方</button>
-    <button id="adminBtn" class="admin-toggle-btn" onclick="toggleAdminMode()">🔑 管理者</button>
+
+  <div class="header-compact-right">
+    <button id="weatherBtn" class="weather-header-btn" onclick="toggleWeatherPanel()">🌤️ 天気読込中</button>
+    <button type="button" class="nav-btn" onclick="startGpsTrackRecording()" style="background:#ef6c00; color:#fff; padding:4px 9px; font-size:0.75rem; border-radius:12px;">🧭 記録</button>
+    <button type="button" class="menu-toggle-btn" onclick="openToolDrawer()">☰ メニュー</button>
   </div>
 </header>
+
+<!-- 右側から開くスッキリ収納メニュー -->
+<div class="tool-drawer-overlay" id="toolDrawerOverlay" onclick="if(event.target===this) closeToolDrawer()">
+  <div class="tool-drawer-panel">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <strong style="font-size:1.05rem; color:#1b5e20;">🛠️ マップ機能メニュー</strong>
+      <button class="nav-close-btn" onclick="closeToolDrawer()">×</button>
+    </div>
+
+    <div id="syncStatus" class="sync-badge" onclick="loadSpots()" style="background:#e8f5e9; color:#2e7d32; padding:8px 12px; border-radius:10px; font-size:0.8rem; font-weight:700; text-align:center;">
+      🔄 接続中...
+    </div>
+
+    <div>
+      <div class="drawer-section-title">🧭 フィールドワーク・記録</div>
+      <div class="drawer-grid">
+        <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); startGpsTrackRecording();">
+          <span>🧭 GPS軌跡記録</span>
+          <span class="drawer-item-sub">歩いたルートを記録</span>
+        </button>
+        <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); openRouteListModal();">
+          <span>🗺️ ルート一覧 (<span id="savedRouteCount">0</span>)</span>
+          <span class="drawer-item-sub">保存ルートの表示・絞込</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="drawer-section-title">🚨 防災・エリア検索</div>
+      <div class="drawer-grid">
+        <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); openEvacModal();">
+          <span>🏃 避難模擬</span>
+          <span class="drawer-item-sub">避難所までの経路検証</span>
+        </button>
+        <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); openLocationModal();">
+          <span>📍 エリア・ピン検索</span>
+          <span class="drawer-item-sub">地区切替・キーワード</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <div class="drawer-section-title">📊 分析・ガイド・管理</div>
+      <div class="drawer-grid">
+        <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); openDashboardModal();">
+          <span>📊 探究集計</span>
+          <span class="drawer-item-sub">投稿データのグラフ分析</span>
+        </button>
+        <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); openTutorial();">
+          <span>❓ 使い方ガイド</span>
+          <span class="drawer-item-sub">操作方法チュートリアル</span>
+        </button>
+        <button type="button" id="adminBtn" class="drawer-item-btn" onclick="closeToolDrawer(); toggleAdminMode();" style="grid-column: span 2;">
+          <span>🔑 管理者モード</span>
+          <span class="drawer-item-sub">投稿ピン・エリアの削除管理</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div id="weatherPanel">
   <div class="weather-panel-header">
@@ -2283,6 +2416,8 @@ async function saveGpsTrackToCloud() {
 
 // 起動時に保存済み探索ルートも自動表示
 setTimeout(renderSavedGpsRoutes, 1500);
+    function openToolDrawer() { document.getElementById('toolDrawerOverlay').style.display = 'flex'; }
+function closeToolDrawer() { document.getElementById('toolDrawerOverlay').style.display = 'none'; }
 </script>
     <!-- 保存済みルート一覧・絞り込みモーダル -->
 <div class="modal-overlay" id="routeListModal" onclick="if(event.target===this) closeRouteListModal()">
