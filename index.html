@@ -468,6 +468,10 @@
           <span>🗺️ ルート一覧 (<span id="savedRouteCount">0</span>)</span>
           <span class="drawer-item-sub">保存ルートの表示・絞込</span>
         </button>
+          <button type="button" class="drawer-item-btn" onclick="closeToolDrawer(); startElevMeasureMode();" style="grid-column: span 2; background:#f1f8e9; border-color:#aed581;">
+          <span>📏 地図タップで高低差計測</span>
+          <span class="drawer-item-sub">2点以上をタップして断面図・標高差を表示</span>
+        </button>
       </div>
     </div>
 
@@ -2630,6 +2634,96 @@ function drawElevationCanvas(points, minElev, maxElev) {
     ctx.fill();
   });
 }
+    // ==========================================
+// 地図上タップによる2点・複数点 高低差計測機能
+// ==========================================
+let isElevMeasureMode = false;
+let elevMeasurePoints = [];
+let elevMeasureLayer = null;
+
+function startElevMeasureMode() {
+  isElevMeasureMode = true;
+  elevMeasurePoints = [];
+  if (!elevMeasureLayer) {
+    elevMeasureLayer = L.layerGroup().addTo(map);
+  }
+  elevMeasureLayer.clearLayers();
+  updateElevMeasureUI();
+  document.getElementById('elevMeasurePanel').style.display = 'block';
+  map.getContainer().style.cursor = 'crosshair';
+}
+
+function stopElevMeasureMode() {
+  isElevMeasureMode = false;
+  elevMeasurePoints = [];
+  if (elevMeasureLayer) elevMeasureLayer.clearLayers();
+  document.getElementById('elevMeasurePanel').style.display = 'none';
+  map.getContainer().style.cursor = '';
+}
+
+function undoElevMeasurePoint() {
+  if (elevMeasurePoints.length === 0) return;
+  elevMeasurePoints.pop();
+  redrawElevMeasureLayer();
+  updateElevMeasureUI();
+}
+
+function redrawElevMeasureLayer() {
+  if (!elevMeasureLayer) return;
+  elevMeasureLayer.clearLayers();
+  if (elevMeasurePoints.length >= 2) {
+    L.polyline(elevMeasurePoints, { color: '#ffffff', weight: 7, opacity: 0.9 }).addTo(elevMeasureLayer);
+    L.polyline(elevMeasurePoints, { color: '#2e7d32', weight: 4, dashArray: '6, 6' }).addTo(elevMeasureLayer);
+  }
+  elevMeasurePoints.forEach((pt, idx) => {
+    const label = idx === 0 ? 'S' : (idx === elevMeasurePoints.length - 1 ? 'G' : String(idx + 1));
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="background:${idx === 0 ? '#1b5e20' : '#ef6c00'}; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; border:2px solid #fff; box-shadow:0 2px 5px rgba(0,0,0,0.3);">${label}</div>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11]
+    });
+    L.marker(pt, { icon }).addTo(elevMeasureLayer);
+  });
+}
+
+function updateElevMeasureUI() {
+  const countEl = document.getElementById('elevMeasureCount');
+  const distEl = document.getElementById('elevMeasureDist');
+  const n = elevMeasurePoints.length;
+  countEl.textContent = n < 2 ? `${n}地点選択中（あと${2 - n}点タップ）` : `${n}地点選択中（計測OK）`;
+
+  let totalDist = 0;
+  for (let i = 1; i < n; i++) {
+    totalDist += map.distance(elevMeasurePoints[i - 1], elevMeasurePoints[i]);
+  }
+  distEl.textContent = totalDist >= 1000 ? `${(totalDist / 1000).toFixed(2)} km` : `${Math.round(totalDist)} m`;
+}
+
+function runElevMeasureChart() {
+  if (elevMeasurePoints.length < 2) {
+    alert('地図上を2地点以上タップしてから「高低差グラフを表示」を押してください。');
+    return;
+  }
+  // 既存の高低差グラフモーダルをそのまま呼び出し
+  openRouteElevationChart({
+    title: `地図計測ルート（${elevMeasurePoints.length}地点）`,
+    coordinates: elevMeasurePoints
+  });
+}
+
+// 地図タップ時に計測モード中なら地点を追加（既存のピン投稿より優先）
+setTimeout(() => {
+  if (typeof map !== 'undefined' && map) {
+    map.on('click', function(e) {
+      if (!isElevMeasureMode) return;
+      L.DomEvent.stopPropagation(e);
+      elevMeasurePoints.push([e.latlng.lat, e.latlng.lng]);
+      redrawElevMeasureLayer();
+      updateElevMeasureUI();
+    });
+  }
+}, 800);
 </script>
     <!-- 保存済みルート一覧・絞り込みモーダル -->
 <div class="modal-overlay" id="routeListModal" onclick="if(event.target===this) closeRouteListModal()">
@@ -2725,6 +2819,21 @@ function drawElevationCanvas(points, minElev, maxElev) {
       </div>
       <div id="elevSafetyAdvice" style="font-size:0.78rem; color:#37474f; background:#fffde7; border:1px solid #fff59d; padding:8px 10px; border-radius:8px; line-height:1.45;"></div>
     </div>
+  </div>
+</div>
+    <!-- 地図タップ高低差計測バー -->
+<div id="elevMeasurePanel" style="display:none; position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:4400; background:#ffffff; border:2px solid #2e7d32; border-radius:16px; padding:12px 14px; width:min(420px, 92vw); box-shadow:0 6px 20px rgba(0,0,0,0.25);">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+    <strong style="color:#1b5e20; font-size:0.9rem;">📏 地図タップ高低差計測</strong>
+    <span id="elevMeasureCount" style="font-size:0.78rem; font-weight:700; color:#ef6c00;">0地点選択中（2点以上で計測可）</span>
+  </div>
+  <div style="font-size:0.75rem; color:#546e7a; margin-bottom:10px;">
+    地図上を順番にタップしてルートを引いてください（距離：<span id="elevMeasureDist" style="font-weight:700; color:#1b5e20;">0 m</span>）
+  </div>
+  <div style="display:flex; gap:6px;">
+    <button type="button" onclick="undoElevMeasurePoint()" style="flex:1; background:#eceff1; color:#37474f; border:none; border-radius:10px; padding:8px; font-size:0.78rem; font-weight:700; cursor:pointer;">↩ 1つ戻す</button>
+    <button type="button" onclick="runElevMeasureChart()" style="flex:2; background:#2e7d32; color:#fff; border:none; border-radius:10px; padding:8px; font-size:0.82rem; font-weight:800; cursor:pointer;">📈 高低差グラフを表示</button>
+    <button type="button" onclick="stopElevMeasureMode()" style="flex:1; background:#ffebee; color:#c62828; border:none; border-radius:10px; padding:8px; font-size:0.78rem; font-weight:700; cursor:pointer;">終了</button>
   </div>
 </div>
     <!-- チュートリアルモーダル -->
