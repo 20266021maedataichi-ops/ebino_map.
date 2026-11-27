@@ -3320,6 +3320,30 @@ function toggleFishingOverlay() {
     legend.style.display = "none";
   }
 }
+    // ==========================================
+// 🛠️ 座標合わせ用：地図クリックで [緯度, 経度] を収集＆コピー
+// ==========================================
+let pickedCoords = [];
+let pickedPreviewLine = null;
+
+map.on("click", function(e) {
+  // Altキー（またはShiftキー）を押しながら地図をクリックした時だけ座標を記録
+  if (!e.originalEvent.shiftKey) return;
+
+  const lat = Number(e.latlng.lat.toFixed(6));
+  const lng = Number(e.latlng.lng.toFixed(6));
+  pickedCoords.push([lat, lng]);
+
+  // 地図上に赤い仮線を描画して確認
+  if (pickedPreviewLine) map.removeLayer(pickedPreviewLine);
+  pickedPreviewLine = L.polyline(pickedCoords, { color: "red", weight: 3, dashArray: "4,4" }).addTo(map);
+
+  // 配列テキストを整形してクリップボードへ自動コピー
+  const formatted = "[\n" + pickedCoords.map(c => `  [${c[0]}, ${c[1]}]`).join(",\n") + "\n]";
+  navigator.clipboard.writeText(formatted);
+  console.log("コピー完了:\n" + formatted);
+  alert(`📍 ${pickedCoords.length}点目を追加し、座標配列をコピーしました！\n（リセットしたい時はページを再読み込み）`);
+});
 </script>
 </body>
 </html>
