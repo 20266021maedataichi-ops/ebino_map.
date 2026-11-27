@@ -370,6 +370,38 @@
   font-weight: 400;
   color: #78909c;
 }
+      /* ルート高低差（標高）グラフ */
+.elev-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.elev-stat-box {
+  background: #f1f8e9;
+  border: 1px solid #c5e1a5;
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.elev-stat-label {
+  font-size: 0.7rem;
+  color: #558b2f;
+  font-weight: 700;
+}
+.elev-stat-val {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #1b5e20;
+  margin-top: 2px;
+}
+.elev-canvas-wrap {
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
   </style>
     <script>
   (function() {
@@ -2318,14 +2350,15 @@ function applyRouteFilterAndDraw() {
     listContainer.innerHTML = '<p style="text-align:center; color:#78909c; padding:24px 0; font-size:0.85rem;">該当する保存ルートはまだありません。</p>';
   }
 
-  filtered.forEach(item => {
+filtered.forEach((item, idx) => {
     const lineColor = item.color || '#ef6c00';
 
     L.polyline(item.coordinates, { color: '#ffffff', weight: 8, opacity: 0.85 }).addTo(savedRoutesLayer);
     const routeLine = L.polyline(item.coordinates, { color: lineColor, weight: 5, opacity: 0.95 }).addTo(savedRoutesLayer);
     routeLine.bindPopup(
       `<strong>${escapeHtml(item.title || '探索ルート')}</strong><br>` +
-      `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.description || '')}</div>`
+      `<div style="font-size:0.8rem;white-space:pre-wrap;margin-top:4px;">${escapeHtml(item.description || '')}</div>` +
+      `<button type="button" onclick="openRouteElevationByIndex(${idx})" style="margin-top:8px; width:100%; background:#2e7d32; color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size:0.78rem; font-weight:700; cursor:pointer;">📈 高低差（標高）グラフを見る</button>`
     );
 
     if (listContainer) {
@@ -2335,8 +2368,15 @@ function applyRouteFilterAndDraw() {
       card.innerHTML = `
         <div class="route-card-title">${escapeHtml(item.title || '探索ルート')}</div>
         <div class="route-card-desc">${escapeHtml(item.description || '')}</div>
-        <div style="margin-top:6px; font-size:0.74rem; color:#ef6c00; font-weight:700;">📍 タップして地図上でルートを表示 →</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; gap:8px;">
+          <span style="font-size:0.74rem; color:#ef6c00; font-weight:700;">📍 タップで地図へ移動</span>
+          <button type="button" class="elev-open-btn" style="background:#e8f5e9; color:#2e7d32; border:1px solid #a5d6a7; border-radius:14px; padding:4px 10px; font-size:0.74rem; font-weight:700; cursor:pointer;">📈 高低差グラフ</button>
+        </div>
       `;
+      card.querySelector('.elev-open-btn').onclick = (e) => {
+        e.stopPropagation();
+        openRouteElevationChart(item);
+      };
       card.onclick = () => {
         closeRouteListModal();
         if (!isSavedRoutesVisible) {
@@ -2418,6 +2458,178 @@ async function saveGpsTrackToCloud() {
 setTimeout(renderSavedGpsRoutes, 1500);
     function openToolDrawer() { document.getElementById('toolDrawerOverlay').style.display = 'flex'; }
 function closeToolDrawer() { document.getElementById('toolDrawerOverlay').style.display = 'none'; }
+    function openRouteElevationByIndex(idx) {
+  const filtered = cachedSavedRoutes.filter(item => {
+    if (currentRouteFilter === 'all') return true;
+    return (item.title || '').includes(currentRouteFilter);
+  });
+  if (filtered[idx]) openRouteElevationChart(filtered[idx]);
+}
+
+function closeElevationModal() {
+  document.getElementById('elevationModal').style.display = 'none';
+}
+
+async function openRouteElevationChart(routeItem) {
+  const modal = document.getElementById('elevationModal');
+  const loadingEl = document.getElementById('elevLoadingMsg');
+  const contentEl = document.getElementById('elevContentArea');
+  document.getElementById('elevModalTitle').textContent = '📈 ' + (routeItem.title || 'ルート高低差グラフ');
+
+  loadingEl.style.display = 'block';
+  loadingEl.textContent = '🏔️ 国土地理院の標高データを取得しています...';
+  contentEl.style.display = 'none';
+  modal.style.display = 'flex';
+
+  const coords = routeItem.coordinates || [];
+  if (coords.length < 2) {
+    loadingEl.textContent = '座標データが不足しているためグラフを作成できません。';
+    return;
+  }
+
+  // API負荷軽減のため最大35地点に均等サンプリング
+  const maxSamples = 35;
+  const sampled = [];
+  if (coords.length <= maxSamples) {
+    coords.forEach(c => sampled.push(c));
+  } else {
+    for (let i = 0; i < maxSamples; i++) {
+      const idx = Math.round((i * (coords.length - 1)) / (maxSamples - 1));
+      sampled.push(coords[idx]);
+    }
+  }
+
+  try {
+    // 各地点の累積距離(m)を計算し、国土地理院 標高APIを並列取得
+    const distances = [0];
+    for (let i = 1; i < sampled.length; i++) {
+      const d = map.distance(sampled[i - 1], sampled[i]);
+      distances.push(distances[i - 1] + d);
+    }
+
+    const elevPromises = sampled.map(async ([lat, lng]) => {
+      const url = `https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php?lon=${lng}&lat=${lat}&outtype=JSON`;
+      const res = await fetch(url);
+      const json = await res.json();
+      const h = parseFloat(json.elevation);
+      return isNaN(h) ? null : h;
+    });
+
+    const rawElevs = await Promise.all(elevPromises);
+    const validPoints = [];
+    rawElevs.forEach((h, i) => {
+      if (h !== null) validPoints.push({ dist: distances[i], elev: h });
+    });
+
+    if (validPoints.length < 2) {
+      loadingEl.textContent = '標高データを取得できませんでした（通信環境をご確認ください）。';
+      return;
+    }
+
+    const elevs = validPoints.map(p => p.elev);
+    const minElev = Math.min(...elevs);
+    const maxElev = Math.max(...elevs);
+    const diffElev = maxElev - minElev;
+    let totalGain = 0;
+    for (let i = 1; i < elevs.length; i++) {
+      if (elevs[i] > elevs[i - 1]) totalGain += (elevs[i] - elevs[i - 1]);
+    }
+
+    document.getElementById('elevMinMax').textContent = `${minElev.toFixed(0)}m / ${maxElev.toFixed(0)}m`;
+    document.getElementById('elevDiff').textContent = `${diffElev.toFixed(1)} m`;
+    document.getElementById('elevGain').textContent = `+${totalGain.toFixed(1)} m`;
+
+    const adviceEl = document.getElementById('elevSafetyAdvice');
+    if (diffElev >= 50 || totalGain >= 60) {
+      adviceEl.innerHTML = '⚠️ <strong>起伏が大きいルートです：</strong>急な坂道や階段が含まれる可能性があります。高齢者や車椅子での避難経路として使う場合は迂回路も検討してください。';
+    } else if (diffElev >= 15) {
+      adviceEl.innerHTML = '🥾 <strong>緩やかな起伏があるルートです：</strong>水害時は標高の高い側（グラフの高い位置）へ向かって避難する目安になります。';
+    } else {
+      adviceEl.innerHTML = '✅ <strong>平坦で歩きやすいルートです：</strong>標高差が少なく、ベビーカーや高齢者でも移動しやすい地形です。';
+    }
+
+    loadingEl.style.display = 'none';
+    contentEl.style.display = 'block';
+    drawElevationCanvas(validPoints, minElev, maxElev);
+  } catch (err) {
+    console.warn('標高取得エラー:', err);
+    loadingEl.textContent = '標高データの読み込みに失敗しました。';
+  }
+}
+
+function drawElevationCanvas(points, minElev, maxElev) {
+  const canvas = document.getElementById('elevationChartCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width;
+  const H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const padL = 46, padR = 16, padT = 18, padB = 28;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const maxDist = Math.max(points[points.length - 1].dist, 1);
+  const yMin = Math.floor(minElev - 5);
+  const yMax = Math.ceil(maxElev + 5);
+  const yRange = Math.max(yMax - yMin, 5);
+
+  const toX = d => padL + (d / maxDist) * plotW;
+  const toY = e => padT + plotH - ((e - yMin) / yRange) * plotH;
+
+  // 横グリッド線と標高ラベル
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.fillStyle = '#607d8b';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = yMin + (yRange * i) / 4;
+    const y = toY(val);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.fillText(`${Math.round(val)}m`, padL - 6, y + 4);
+  }
+
+  // 距離ラベル（スタート・中間・ゴール）
+  ctx.textAlign = 'center';
+  ctx.fillText('0m', padL, H - 8);
+  ctx.fillText(`${Math.round(maxDist / 2)}m`, padL + plotW / 2, H - 8);
+  ctx.fillText(`${Math.round(maxDist)}m`, W - padR, H - 8);
+
+  // 塗りつぶしエリア
+  const grad = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+  grad.addColorStop(0, 'rgba(46, 125, 50, 0.35)');
+  grad.addColorStop(1, 'rgba(46, 125, 50, 0.04)');
+
+  ctx.beginPath();
+  ctx.moveTo(toX(points[0].dist), padT + plotH);
+  points.forEach(p => ctx.lineTo(toX(p.dist), toY(p.elev)));
+  ctx.lineTo(toX(points[points.length - 1].dist), padT + plotH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // 折れ線
+  ctx.beginPath();
+  points.forEach((p, idx) => {
+    const x = toX(p.dist);
+    const y = toY(p.elev);
+    if (idx === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#2e7d32';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // 頂点ドット
+  ctx.fillStyle = '#ef6c00';
+  points.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(toX(p.dist), toY(p.elev), 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
 </script>
     <!-- 保存済みルート一覧・絞り込みモーダル -->
 <div class="modal-overlay" id="routeListModal" onclick="if(event.target===this) closeRouteListModal()">
@@ -2443,6 +2655,76 @@ function closeToolDrawer() { document.getElementById('toolDrawerOverlay').style.
     </div>
 
     <div id="savedRoutesListContainer" style="max-height:55vh; overflow-y:auto;"></div>
+  </div>
+</div>
+    <!-- ルート高低差（標高）グラフモーダル -->
+<div class="modal-overlay" id="elevationModal" onclick="if(event.target===this) closeElevationModal()" style="z-index: 4600;">
+  <div class="modal" style="max-width:540px;">
+    <div class="dash-header">
+      <h2 id="elevModalTitle" style="font-size:1rem;">📈 ルート高低差（標高）グラフ</h2>
+      <button class="nav-close-btn" onclick="closeElevationModal()" title="閉じる">×</button>
+    </div>
+
+    <div id="elevLoadingMsg" style="text-align:center; padding:20px; color:#558b2f; font-weight:700; font-size:0.86rem;">
+      🏔️ 国土地理院の標高データを取得しています...
+    </div>
+
+    <div id="elevContentArea" style="display:none;">
+      <div class="elev-stats-grid">
+        <div class="elev-stat-box">
+          <div class="elev-stat-label">最低 / 最高標高</div>
+          <div class="elev-stat-val" id="elevMinMax">-</div>
+        </div>
+        <div class="elev-stat-box">
+          <div class="elev-stat-label">標高差（高低差）</div>
+          <div class="elev-stat-val" id="elevDiff">-</div>
+        </div>
+        <div class="elev-stat-box">
+          <div class="elev-stat-label">累積登り（総上昇）</div>
+          <div class="elev-stat-val" id="elevGain">-</div>
+        </div>
+      </div>
+
+      <div class="elev-canvas-wrap">
+        <canvas id="elevationChartCanvas" width="480" height="210" style="width:100%; height:210px; display:block;"></canvas>
+      </div>
+      <div id="elevSafetyAdvice" style="font-size:0.78rem; color:#37474f; background:#fffde7; border:1px solid #fff59d; padding:8px 10px; border-radius:8px; line-height:1.45;"></div>
+    </div>
+  </div>
+</div>
+    <!-- ルート高低差（標高）グラフモーダル -->
+<div class="modal-overlay" id="elevationModal" onclick="if(event.target===this) closeElevationModal()" style="z-index: 4600;">
+  <div class="modal" style="max-width:540px;">
+    <div class="dash-header">
+      <h2 id="elevModalTitle" style="font-size:1rem;">📈 ルート高低差（標高）グラフ</h2>
+      <button class="nav-close-btn" onclick="closeElevationModal()" title="閉じる">×</button>
+    </div>
+
+    <div id="elevLoadingMsg" style="text-align:center; padding:20px; color:#558b2f; font-weight:700; font-size:0.86rem;">
+      🏔️ 国土地理院の標高データを取得しています...
+    </div>
+
+    <div id="elevContentArea" style="display:none;">
+      <div class="elev-stats-grid">
+        <div class="elev-stat-box">
+          <div class="elev-stat-label">最低 / 最高標高</div>
+          <div class="elev-stat-val" id="elevMinMax">-</div>
+        </div>
+        <div class="elev-stat-box">
+          <div class="elev-stat-label">標高差（高低差）</div>
+          <div class="elev-stat-val" id="elevDiff">-</div>
+        </div>
+        <div class="elev-stat-box">
+          <div class="elev-stat-label">累積登り（総上昇）</div>
+          <div class="elev-stat-val" id="elevGain">-</div>
+        </div>
+      </div>
+
+      <div class="elev-canvas-wrap">
+        <canvas id="elevationChartCanvas" width="480" height="210" style="width:100%; height:210px; display:block;"></canvas>
+      </div>
+      <div id="elevSafetyAdvice" style="font-size:0.78rem; color:#37474f; background:#fffde7; border:1px solid #fff59d; padding:8px 10px; border-radius:8px; line-height:1.45;"></div>
+    </div>
   </div>
 </div>
     <!-- チュートリアルモーダル -->
