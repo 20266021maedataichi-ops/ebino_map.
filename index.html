@@ -3190,15 +3190,13 @@ function evaluateFishingSeasonStatus(date = new Date()) {
 function buildFishingOverlayLayer() {
   const group = L.layerGroup();
 
-  // ① クルソン峡：No.6より上流（エサ釣り等のヤマメ釣り場エリア）
-  // 狗留孫峡（北部渓谷）〜 山の神橋付近の谷筋に沿った座標
+ // ① クルソン峡：No.6より上流（エサ釣り等のヤマメ釣り場エリア）
   const kurusonUpperCoords = [
-    [32.1145, 130.8655],
-    [32.1145, 130.8705],
-    [32.1045, 130.8675],
-    [32.0975, 130.8660],
-    [32.0975, 130.8615],
-    [32.1050, 130.8630]
+    [32.117184, 130.928192],
+    [32.11573, 130.938835],
+    [32.083302, 130.93008],
+    [32.084902, 130.915661],
+    [32.117184, 130.928192]
   ];
   L.polygon(kurusonUpperCoords, {
     color: "#2e7d32",
@@ -3208,7 +3206,6 @@ function buildFishingOverlayLayer() {
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
       <strong style="color:#2e7d32;">🎣 クルソン峡（No.6より上流エリア）</strong><br>
-      場所：狗留孫峡〜山の神橋 周辺渓谷<br>
       区分：<strong>エサ釣り等のヤマメ釣り場</strong><br>
       禁漁期間：10月1日〜翌年2月末日（15cm以下周年採捕禁止）<br>
       ※遊漁承認証（鑑札）および現地標識をご確認ください。
@@ -3216,14 +3213,12 @@ function buildFishingOverlayLayer() {
   `).addTo(group);
 
   // ② クルソン峡：No.6より下流（ルアー＆フライ専用ゾーン）
-  // 山の神橋付近 〜 クルソン峡川遊びポイント 〜 享保水路井堰上流手前
   const kurusonLowerCoords = [
-    [32.0975, 130.8615],
-    [32.0975, 130.8660],
-    [32.0900, 130.8645],
-    [32.0835, 130.8605],
-    [32.0850, 130.8565],
-    [32.0910, 130.8600]
+    [32.084927, 130.916785],
+    [32.082309, 130.928029],
+    [32.056442, 130.914991],
+    [32.060079, 130.898512],
+    [32.084953, 130.916365]
   ];
   L.polygon(kurusonLowerCoords, {
     color: "#7b1fa2",
@@ -3233,10 +3228,25 @@ function buildFishingOverlayLayer() {
   }).bindPopup(`
     <div style="font-size:0.84rem; line-height:1.5;">
       <strong style="color:#7b1fa2;">🪰 クルソン峡（No.6より下流エリア）</strong><br>
-      場所：山の神橋下流〜川遊びポイント周辺<br>
       区分：<strong>ルアー＆フライ専用ゾーン</strong>（エサ釣り不可）<br>
       禁漁期間：10月1日〜翌年2月末日（15cm以下周年採捕禁止）<br>
       ※現地のNo.6境界標識を必ずご確認ください。
+    </div>
+  `).addTo(group);
+
+  // ③ クルソン峡 No.6 境界目安マーカー（実測境界ライン中央）
+  L.circleMarker([32.0836, 130.9235], {
+    radius: 7,
+    color: "#fff",
+    weight: 2,
+    fillColor: "#6a1b9a",
+    fillOpacity: 1
+  }).bindPopup(`
+    <div style="font-size:0.84rem; line-height:1.5;">
+      <strong>📌 クルソン峡 No.6 釣法境界（目安地点）</strong><br>
+      ・上流側：エサ釣り等のヤマメ釣り場<br>
+      ・下流側：ルアー＆フライ専用ゾーン<br>
+      <small style="color:#666;">※正確な境界は現地のNo.6看板に従ってください</small>
     </div>
   `).addTo(group);
 
